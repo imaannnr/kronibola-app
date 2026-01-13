@@ -11,8 +11,7 @@ st.title("⚽ Kajang Football Registration")
 # --- CONNECT TO GOOGLE SHEETS ---
 # We use st.secrets to keep your key safe
 try:
-    scope = ['https://www.googleapis.com/auth/spreadsheets']
-    # This grabs the secret you will paste in Phase 5
+scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
     creds_dict = dict(st.secrets["gcp_service_account"]) 
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
