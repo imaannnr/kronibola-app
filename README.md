@@ -1,0 +1,2 @@
+# kronibola-app
+KroniBola App
