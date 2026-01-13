@@ -19,7 +19,7 @@ try:
     # Open the sheet
     sheet = client.open("KroniBola DB").worksheet("Registrations")
 except Exception as e:
-    st.error("⚠️ Error connecting to Google Sheets. Check your Secrets setup!")
+    st.error(f"Here is the real error: {e}")
     st.stop()
 
 # --- THE REGISTRATION FORM ---
