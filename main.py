@@ -17,7 +17,7 @@ try:
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
     # Open the sheet
-    sheet = client.open("Kajang Football DB").worksheet("Registrations")
+    sheet = client.open("KroniBola DB").worksheet("Registrations")
 except Exception as e:
     st.error("⚠️ Error connecting to Google Sheets. Check your Secrets setup!")
     st.stop()
