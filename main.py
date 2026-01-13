@@ -11,12 +11,16 @@ st.title("⚽ Kajang Football Registration")
 # --- CONNECT TO GOOGLE SHEETS ---
 # We use st.secrets to keep your key safe
 try:
-scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    creds_dict = dict(st.secrets["gcp_service_account"]) 
+    # UPDATED SCOPES (Fixes the 403 error)
+    scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+    
+    creds_dict = dict(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
-    # Open the sheet
+    
+    # Open the sheet - MAKE SURE YOUR SHEET IS NAMED "KroniBola DB"
     sheet = client.open("KroniBola DB").worksheet("Registrations")
+
 except Exception as e:
     st.error(f"Here is the real error: {e}")
     st.stop()
@@ -32,7 +36,7 @@ with st.form("entry_form", clear_on_submit=True):
         session_date = st.date_input("Session Date")
     
     # Simple dropdown for status
-    status = "Pending" 
+    status = "Pending"
     
     submitted = st.form_submit_button("⚽ Register Now")
 
