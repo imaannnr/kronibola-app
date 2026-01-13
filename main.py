@@ -6,7 +6,7 @@ from datetime import datetime
 
 # --- CONFIGURATION ---
 # Replace this with your own phone number (Format: 601xxxx)
-ADMIN_WHATSAPP = "60123456789" 
+ADMIN_WHATSAPP = "60126183827" 
 ADMIN_PASSWORD = "bola123"  # Change this to a secret password
 
 # --- PAGE SETUP ---
