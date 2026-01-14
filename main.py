@@ -72,9 +72,9 @@ try:
     client = gspread.authorize(creds)
     db = client.open("KroniBola DB")
     sheet_regs = db.worksheet("Registrations")
-    sheet_sessions = db.worksheet("Sessions") # UPDATED SHEET NAME
+    sheet_sessions = db.worksheet("Sessions") # Ensure Tab is named "Sessions"
 except Exception as e:
-    st.error(f"⚠️ Error: Could not find 'Sessions' tab. Please rename 'Config' to 'Sessions' and update headers! {e}")
+    st.error(f"⚠️ CONNECTION ERROR: {e}")
     st.stop()
 
 # --- HEADER ---
@@ -97,11 +97,21 @@ if mode == "⚽ Register for Match":
         sessions_data = sheet_sessions.get_all_records()
         sessions_df = pd.DataFrame(sessions_data)
         
+        # Check if empty
+        if sessions_df.empty:
+            st.warning("No sessions found in database. Admin: Please add sessions in Admin Panel.")
+            st.stop()
+            
         # Filter for "Open" status only
-        open_sessions = sessions_df[sessions_df["Status"] == "Open"]
+        # We use .get just in case column name is slightly wrong
+        if "Status" in sessions_df.columns:
+            open_sessions = sessions_df[sessions_df["Status"] == "Open"]
+        else:
+            st.error("Error: Column 'Status' not found in Sessions sheet.")
+            st.stop()
         
         if open_sessions.empty:
-            st.warning("No open sessions available right now.")
+            st.info("No open games right now. Check back later!")
             st.stop()
             
         # Create a display list (Name + Date)
@@ -119,7 +129,7 @@ if mode == "⚽ Register for Match":
         S_FEE = selected_row['Fee']
 
     except Exception as e:
-        st.error(f"Error loading sessions. Admin check 'Sessions' sheet format. {e}")
+        st.error(f"⚠️ Error loading sessions: {e}")
         st.stop()
 
     # 2. Registration Form
@@ -143,8 +153,6 @@ if mode == "⚽ Register for Match":
 
                 if submitted and player_name:
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    
-                    # Log the specific session date chosen
                     row_data = [str(S_DATE), player_name, "Pending", str(S_FEE), timestamp]
                     sheet_regs.append_row(row_data)
                     st.success(f"See you there, {player_name}!")
@@ -162,20 +170,19 @@ elif mode == "📝 Player List":
     st.subheader("TEAM SHEET")
     
     try:
-        # Get all registered players
         reg_data = sheet_regs.get_all_records()
         reg_df = pd.DataFrame(reg_data)
         
-        # Get available dates from sessions to filter
         sessions_data = sheet_sessions.get_all_records()
         sessions_df = pd.DataFrame(sessions_data)
-        available_dates = sessions_df['Date'].unique().tolist()
         
-        # Dropdown to filter list
-        selected_date_view = st.selectbox("View Players For:", available_dates)
-        
-        if not reg_df.empty:
-            # Filter Logic
+        if not sessions_df.empty and "Date" in sessions_df.columns:
+            available_dates = sessions_df['Date'].unique().tolist()
+            selected_date_view = st.selectbox("View Players For:", available_dates)
+        else:
+            selected_date_view = None
+
+        if not reg_df.empty and selected_date_view:
             reg_df['Session Date'] = reg_df['Session Date'].astype(str)
             display_df = reg_df[reg_df['Session Date'] == str(selected_date_view)]
             display_df = display_df[["Player Name", "Payment Status"]]
@@ -190,13 +197,13 @@ elif mode == "📝 Player List":
             else:
                 st.info(f"No players found for {selected_date_view}.")
         else:
-            st.info("Database empty.")
+            st.info("No data available.")
             
     except Exception as e:
-        st.write(f"Error loading list: {e}")
+        st.write(f"Loading Error: {e}")
 
 # ==========================================
-# PAGE 3: ADMIN PANEL (MANAGE SCHEDULE)
+# PAGE 3: ADMIN PANEL (DEBUGGER MODE)
 # ==========================================
 elif mode == "🔒 Admin Panel":
     st.subheader("ADMIN ACCESS")
@@ -209,17 +216,29 @@ elif mode == "🔒 Admin Panel":
         
         # --- TAB 1: SCHEDULE MANAGEMENT ---
         with tab_schedule:
-            st.write("Edit upcoming games here. Set Status to 'Closed' to hide them.")
+            st.write("Edit upcoming games here.")
             
             try:
+                # 1. READ RAW DATA
                 s_data = sheet_sessions.get_all_records()
                 s_df = pd.DataFrame(s_data)
                 
+                # 2. DEBUGGING: Check if empty
+                if s_df.empty:
+                    st.warning("⚠️ The 'Sessions' sheet is found, but it looks empty.")
+                    st.info("Try adding one dummy row in Google Sheets (Row 2) and reload.")
+                    # Create a default empty dataframe so the app doesn't crash
+                    s_df = pd.DataFrame(columns=["Session Name", "Date", "Time", "Location", "Fee", "Status"])
+                
+                # 3. DEBUGGING: Print columns found
+                # This will show you on screen if you have a typo!
+                st.caption(f"Columns found in Google Sheet: {list(s_df.columns)}")
+
                 edited_schedule = st.data_editor(
                     s_df,
                     num_rows="dynamic",
                     column_config={
-                        "Status": st.column_config.SelectboxColumn("Status", options=["Open", "Closed"], required=True),
+                        "Status": st.column_config.SelectboxColumn("Status", options=["Open", "Closed"]),
                         "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD")
                     },
                     use_container_width=True
@@ -231,12 +250,14 @@ elif mode == "🔒 Admin Panel":
                     sheet_sessions.append_rows(edited_schedule.values.tolist())
                     st.toast("Schedule Updated!", icon="✅")
                     st.rerun()
-            except:
-                st.error("Sessions sheet is empty or headers are wrong.")
+            except Exception as e:
+                # 4. SHOW REAL ERROR
+                st.error(f"❌ CRITICAL ERROR: {e}")
+                st.error("Please double check your Google Sheet Headers exactly match the code.")
 
         # --- TAB 2: PLAYERS MANAGEMENT ---
         with tab_players:
-            st.write("Tick 'Delete?' to remove players.")
+            # Same logic here...
             p_data = sheet_regs.get_all_records()
             p_df = pd.DataFrame(p_data)
             
