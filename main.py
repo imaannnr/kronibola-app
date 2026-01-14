@@ -37,7 +37,7 @@ st.markdown(f"""
     
     p, label, .stMarkdown, .stCaption, .stText {{ color: #E0E0E0 !important; }}
     
-    .stTextInput input, .stDateInput input, .stTimeInput input {{
+    .stTextInput input, .stDateInput input, .stTimeInput input, .stSelectbox div[data-baseweb="select"] {{
         background-color: #2D2D2D !important;
         color: white !important;
         border: 1px solid #555 !important;
@@ -70,39 +70,11 @@ try:
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
-    # Open Sheets
     db = client.open("KroniBola DB")
     sheet_regs = db.worksheet("Registrations")
-    sheet_config = db.worksheet("Config") # NEW SHEET
+    sheet_sessions = db.worksheet("Sessions") # UPDATED SHEET NAME
 except Exception as e:
-    st.error(f"⚠️ Error: Could not find 'Config' tab in Google Sheets. Please create it! Error: {e}")
-    st.stop()
-
-# --- HELPER: GET / SET CONFIG ---
-def get_config():
-    records = sheet_config.get_all_records()
-    # Convert list of dicts to a single key-value dict
-    config = {row['Key']: row['Value'] for row in records}
-    return config
-
-def update_config(name, date, time, loc, fee):
-    # We just overwrite the cells B2:B6 directly for speed
-    sheet_config.update_acell("B2", name)
-    sheet_config.update_acell("B3", str(date)) # Ensure string
-    sheet_config.update_acell("B4", str(time))
-    sheet_config.update_acell("B5", loc)
-    sheet_config.update_acell("B6", fee)
-
-# --- LOAD CURRENT SESSION INFO ---
-try:
-    current_conf = get_config()
-    SESSION_NAME = current_conf.get("Session Name", "Football")
-    SESSION_DATE = current_conf.get("Date", "TBD")
-    SESSION_TIME = current_conf.get("Time", "TBD")
-    SESSION_LOC  = current_conf.get("Location", "TBD")
-    SESSION_FEE  = current_conf.get("Fee", "15")
-except:
-    st.error("Config data format is wrong. Check headers 'Key' and 'Value' in Config tab.")
+    st.error(f"⚠️ Error: Could not find 'Sessions' tab. Please rename 'Config' to 'Sessions' and update headers! {e}")
     st.stop()
 
 # --- HEADER ---
@@ -113,73 +85,100 @@ st.write("___")
 with st.sidebar:
     st.header("MENU")
     mode = st.radio("Navigate", ["⚽ Register for Match", "📝 Player List", "🔒 Admin Panel"])
-    
-    # Show Session Info in Sidebar
-    st.divider()
-    st.caption("UPCOMING MATCH:")
-    st.markdown(f"**{SESSION_NAME}**")
-    st.markdown(f"📅 {SESSION_DATE}")
-    st.markdown(f"⏰ {SESSION_TIME}")
-    st.markdown(f"📍 {SESSION_LOC}")
 
 # ==========================================
-# PAGE 1: REGISTRATION (AUTO-FILLED)
+# PAGE 1: REGISTRATION (MULTI-SESSION)
 # ==========================================
 if mode == "⚽ Register for Match":
-    st.subheader(f"NEXT MATCH: {SESSION_DATE}")
+    st.subheader("SELECT A MATCH")
     
+    # 1. Fetch Open Sessions
+    try:
+        sessions_data = sheet_sessions.get_all_records()
+        sessions_df = pd.DataFrame(sessions_data)
+        
+        # Filter for "Open" status only
+        open_sessions = sessions_df[sessions_df["Status"] == "Open"]
+        
+        if open_sessions.empty:
+            st.warning("No open sessions available right now.")
+            st.stop()
+            
+        # Create a display list (Name + Date)
+        session_options = open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1).tolist()
+        
+        selected_option = st.selectbox("Choose Session:", session_options)
+        
+        # Get details of selected session
+        selected_row = open_sessions[open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1) == selected_option].iloc[0]
+        
+        S_NAME = selected_row['Session Name']
+        S_DATE = selected_row['Date']
+        S_TIME = selected_row['Time']
+        S_LOC = selected_row['Location']
+        S_FEE = selected_row['Fee']
+
+    except Exception as e:
+        st.error(f"Error loading sessions. Admin check 'Sessions' sheet format. {e}")
+        st.stop()
+
+    # 2. Registration Form
+    st.write("")
     with st.container():
         col1, col2 = st.columns([1, 1])
         with col1:
-            st.markdown(f"#### 1. PAY: RM {SESSION_FEE}")
+            st.markdown(f"#### FEE: RM {S_FEE}")
             try:
                 st.image("pay.jpg", use_container_width=True)
             except:
                 st.warning("Upload pay.jpg")
         with col2:
-            st.markdown("#### 2. DETAILS")
-            
-            # DISPLAY MATCH INFO CARD
-            st.info(f"📍 {SESSION_LOC} | ⏰ {SESSION_TIME}")
+            st.markdown("#### MATCH DETAILS")
+            st.info(f"📍 {S_LOC}\n\n⏰ {S_TIME}\n\n📅 {S_DATE}")
             
             with st.form("entry_form", clear_on_submit=True):
                 player_name = st.text_input("Your Nickname")
                 
-                # Hidden Date Field (User doesn't pick anymore)
-                st.caption(f"Registering for: {SESSION_NAME} ({SESSION_DATE})")
-                
-                st.write("") 
                 submitted = st.form_submit_button("✅ CONFIRM SLOT")
 
                 if submitted and player_name:
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    # Using the Global Session Date/Fee
-                    row_data = [str(SESSION_DATE), player_name, "Pending", str(SESSION_FEE), timestamp]
-                    sheet_regs.append_row(row_data)
-                    st.success(f"DONE! {player_name} is in.")
                     
-                    msg = f"Hi Admin, I registered for {SESSION_NAME} on {SESSION_DATE}. Name: {player_name}."
+                    # Log the specific session date chosen
+                    row_data = [str(S_DATE), player_name, "Pending", str(S_FEE), timestamp]
+                    sheet_regs.append_row(row_data)
+                    st.success(f"See you there, {player_name}!")
+                    
+                    msg = f"Hi Admin, I registered for {S_NAME} on {S_DATE}. Name: {player_name}."
                     wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
                     st.link_button("📤 SEND RECEIPT (WHATSAPP)", wa_link)
                 elif submitted:
                     st.error("Name Required")
 
 # ==========================================
-# PAGE 2: PLAYER LIST
+# PAGE 2: PLAYER LIST (FILTERABLE)
 # ==========================================
 elif mode == "📝 Player List":
-    st.subheader(f"LINEUP: {SESSION_DATE}")
+    st.subheader("TEAM SHEET")
+    
     try:
-        data = sheet_regs.get_all_records()
-        if data:
-            df = pd.DataFrame(data)
-            
-            # FILTER: Only show players for the CURRENT configured date
-            # Convert both columns to string to ensure they match
-            df['Session Date'] = df['Session Date'].astype(str)
-            active_df = df[df['Session Date'] == str(SESSION_DATE)]
-            
-            display_df = active_df[["Player Name", "Payment Status", "Amount"]]
+        # Get all registered players
+        reg_data = sheet_regs.get_all_records()
+        reg_df = pd.DataFrame(reg_data)
+        
+        # Get available dates from sessions to filter
+        sessions_data = sheet_sessions.get_all_records()
+        sessions_df = pd.DataFrame(sessions_data)
+        available_dates = sessions_df['Date'].unique().tolist()
+        
+        # Dropdown to filter list
+        selected_date_view = st.selectbox("View Players For:", available_dates)
+        
+        if not reg_df.empty:
+            # Filter Logic
+            reg_df['Session Date'] = reg_df['Session Date'].astype(str)
+            display_df = reg_df[reg_df['Session Date'] == str(selected_date_view)]
+            display_df = display_df[["Player Name", "Payment Status"]]
             
             def highlight_status(val):
                 if val == 'Paid': return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
@@ -188,16 +187,16 @@ elif mode == "📝 Player List":
 
             if not display_df.empty:
                 st.dataframe(display_df.style.applymap(highlight_status, subset=['Payment Status']), use_container_width=True)
-                st.caption(f"Showing players for {SESSION_DATE} only.")
             else:
-                st.info(f"No players registered for {SESSION_DATE} yet.")
+                st.info(f"No players found for {selected_date_view}.")
         else:
             st.info("Database empty.")
+            
     except Exception as e:
         st.write(f"Error loading list: {e}")
 
 # ==========================================
-# PAGE 3: ADMIN PANEL (MANAGE SESSION)
+# PAGE 3: ADMIN PANEL (MANAGE SCHEDULE)
 # ==========================================
 elif mode == "🔒 Admin Panel":
     st.subheader("ADMIN ACCESS")
@@ -206,50 +205,59 @@ elif mode == "🔒 Admin Panel":
     if password == ADMIN_PASSWORD:
         st.success("ACCESS GRANTED")
         
-        tab_session, tab_players = st.tabs(["⚙️ MATCH SETTINGS", "👥 MANAGE PLAYERS"])
+        tab_schedule, tab_players = st.tabs(["📅 MANAGE SCHEDULE", "👥 MANAGE PLAYERS"])
         
-        # --- TAB 1: SET THE MATCH DETAILS ---
-        with tab_session:
-            st.markdown("### UPDATE UPCOMING MATCH")
-            with st.form("config_form"):
-                new_name = st.text_input("Session Name", value=SESSION_NAME)
-                new_date = st.text_input("Date (YYYY-MM-DD)", value=SESSION_DATE)
-                new_time = st.text_input("Time", value=SESSION_TIME)
-                new_loc = st.text_input("Location", value=SESSION_LOC)
-                new_fee = st.text_input("Fee (RM)", value=SESSION_FEE)
+        # --- TAB 1: SCHEDULE MANAGEMENT ---
+        with tab_schedule:
+            st.write("Edit upcoming games here. Set Status to 'Closed' to hide them.")
+            
+            try:
+                s_data = sheet_sessions.get_all_records()
+                s_df = pd.DataFrame(s_data)
                 
-                if st.form_submit_button("💾 UPDATE SESSION INFO"):
-                    update_config(new_name, new_date, new_time, new_loc, new_fee)
-                    st.toast("Settings Updated! Reloading...", icon="🔄")
+                edited_schedule = st.data_editor(
+                    s_df,
+                    num_rows="dynamic",
+                    column_config={
+                        "Status": st.column_config.SelectboxColumn("Status", options=["Open", "Closed"], required=True),
+                        "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD")
+                    },
+                    use_container_width=True
+                )
+                
+                if st.button("💾 SAVE SCHEDULE"):
+                    sheet_sessions.clear()
+                    sheet_sessions.append_row(s_df.columns.tolist())
+                    sheet_sessions.append_rows(edited_schedule.values.tolist())
+                    st.toast("Schedule Updated!", icon="✅")
                     st.rerun()
+            except:
+                st.error("Sessions sheet is empty or headers are wrong.")
 
-        # --- TAB 2: MANAGE PLAYERS (DELETE/PAID) ---
+        # --- TAB 2: PLAYERS MANAGEMENT ---
         with tab_players:
-            st.markdown("### PLAYER STATUS")
-            data = sheet_regs.get_all_records()
-            df = pd.DataFrame(data)
+            st.write("Tick 'Delete?' to remove players.")
+            p_data = sheet_regs.get_all_records()
+            p_df = pd.DataFrame(p_data)
             
-            # Filter for current date (Optional, or show all)
-            # We show ALL here so you can clean up old data if needed
+            if "Delete?" not in p_df.columns:
+                p_df.insert(0, "Delete?", False)
             
-            if "Delete?" not in df.columns:
-                df.insert(0, "Delete?", False)
-            
-            edited_df = st.data_editor(
-                df, 
+            edited_players = st.data_editor(
+                p_df, 
                 num_rows="dynamic",
                 column_config={
                     "Delete?": st.column_config.CheckboxColumn("Delete?", default=False),
-                    "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Rejected"], required=True)
+                    "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Rejected"])
                 },
                 use_container_width=True
             )
             
-            if st.button("💾 SAVE PLAYER CHANGES"):
-                rows_to_keep = edited_df[edited_df["Delete?"] == False]
+            if st.button("💾 SAVE PLAYER STATUS"):
+                rows_to_keep = edited_players[edited_players["Delete?"] == False]
                 final_data = rows_to_keep.drop(columns=["Delete?"])
                 sheet_regs.clear()
                 sheet_regs.append_row(final_data.columns.tolist())
                 sheet_regs.append_rows(final_data.values.tolist())
-                st.toast("Database Updated!", icon="✅")
+                st.toast("Players Updated!", icon="✅")
                 st.rerun()
