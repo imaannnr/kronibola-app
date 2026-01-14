@@ -16,15 +16,11 @@ NEON_GREEN = "#CCFF00"
 DARK_BG = "#121212"
 CARD_BG = "#1E1E1E"
 
-# --- CUSTOM CSS (FIXED BUTTON VISIBILITY) ---
+# --- CUSTOM CSS ---
 st.markdown(f"""
     <style>
-    /* 1. BACKGROUND */
-    .stApp {{
-        background-color: {DARK_BG};
-    }}
+    .stApp {{ background-color: {DARK_BG}; }}
     
-    /* 2. CARDS */
     .css-1r6slb0, .css-keje6w, .stForm {{
         background-color: {CARD_BG};
         border: 1px solid #333;
@@ -33,38 +29,31 @@ st.markdown(f"""
         padding: 20px;
     }}
     
-    /* 3. HEADERS */
     h1, h2, h3 {{
         color: {NEON_GREEN} !important;
         font-family: 'Arial Black', sans-serif;
         text-transform: uppercase;
     }}
     
-    /* 4. TEXT FIXES */
-    p, label, .stMarkdown, .stCaption {{
-        color: #E0E0E0 !important;
-    }}
+    p, label, .stMarkdown, .stCaption {{ color: #E0E0E0 !important; }}
     
-    /* 5. INPUT FIELDS */
     .stTextInput input, .stDateInput input {{
         background-color: #2D2D2D !important;
         color: white !important;
         border: 1px solid #555 !important;
     }}
 
-    /* 6. *** SUPER VISIBLE BUTTON *** */
     div.stButton > button {{
         background-color: {NEON_GREEN} !important;
-        color: #000000 !important;  /* Pure Black Text */
-        font-size: 20px !important; /* Much Bigger */
-        font-weight: 900 !important; /* Extra Thick */
+        color: #000000 !important;
+        font-size: 20px !important;
+        font-weight: 900 !important;
         padding: 15px 30px !important;
         border-radius: 10px !important;
         border: 2px solid {NEON_GREEN} !important;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
         width: 100%;
-        box-shadow: 0 0 15px rgba(204, 255, 0, 0.4); /* Neon Glow */
+        box-shadow: 0 0 15px rgba(204, 255, 0, 0.4);
         transition: all 0.3s ease;
     }}
     
@@ -72,11 +61,10 @@ st.markdown(f"""
         background-color: black !important;
         color: {NEON_GREEN} !important;
         border: 2px solid {NEON_GREEN} !important;
-        box-shadow: 0 0 25px rgba(204, 255, 0, 0.9); /* Bright Glow on Hover */
+        box-shadow: 0 0 25px rgba(204, 255, 0, 0.9);
         transform: scale(1.02);
     }}
 
-    /* 7. WHATSAPP BUTTON */
     div.stLinkButton > a {{
         background-color: #25D366 !important;
         color: white !important;
@@ -86,10 +74,7 @@ st.markdown(f"""
         padding: 10px;
     }}
     
-    /* 8. TABLE FIX */
-    [data-testid="stDataFrame"] {{
-        background-color: {CARD_BG};
-    }}
+    [data-testid="stDataFrame"] {{ background-color: {CARD_BG}; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -121,47 +106,37 @@ if mode == "⚽ New Registration":
     
     with st.container():
         col1, col2 = st.columns([1, 1])
-        
         with col1:
             st.markdown("#### 1. SCAN QR")
             try:
                 st.image("pay.jpg", use_container_width=True)
             except:
-                st.warning("Upload pay.jpg to GitHub")
-
+                st.warning("Upload pay.jpg")
         with col2:
             st.markdown("#### 2. DETAILS")
             with st.form("entry_form", clear_on_submit=True):
                 player_name = st.text_input("Your Nickname")
                 session_date = st.date_input("Match Date")
-                
-                # SPACER to push button down slightly
                 st.write("") 
-                
-                # THE BIG BUTTON
                 submitted = st.form_submit_button("✅ CONFIRM SLOT")
 
                 if submitted and player_name:
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     row_data = [str(session_date), player_name, "Pending", "15", timestamp]
                     sheet.append_row(row_data)
-                    
                     st.success(f"DONE! {player_name} is in.")
                     
-                    # WhatsApp Button
                     msg = f"Hi Admin, I registered for {session_date}. Name: {player_name}."
                     wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
                     st.link_button("📤 SEND RECEIPT (WHATSAPP)", wa_link)
-                    
                 elif submitted:
-                    st.error("Please enter your name.")
+                    st.error("Name Required")
 
 # ==========================================
 # PAGE 2: PLAYER LIST
 # ==========================================
 elif mode == "📝 Player List":
     st.subheader("TEAM SHEET")
-    
     try:
         data = sheet.get_all_records()
         if data:
@@ -169,23 +144,18 @@ elif mode == "📝 Player List":
             display_df = df[["Session Date", "Player Name", "Payment Status"]]
             
             def highlight_status(val):
-                if val == 'Paid':
-                    return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
-                elif val == 'Pending':
-                    return 'background-color: #444; color: orange; font-weight: bold;'
+                if val == 'Paid': return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
+                elif val == 'Pending': return 'background-color: #444; color: orange; font-weight: bold;'
                 return ''
 
-            st.dataframe(
-                display_df.style.applymap(highlight_status, subset=['Payment Status']),
-                use_container_width=True
-            )
+            st.dataframe(display_df.style.applymap(highlight_status, subset=['Payment Status']), use_container_width=True)
         else:
             st.info("No players yet.")
     except:
         st.write("List is empty.")
 
 # ==========================================
-# PAGE 3: ADMIN PANEL
+# PAGE 3: ADMIN PANEL (WITH DELETE)
 # ==========================================
 elif mode == "🔒 Admin Panel":
     st.subheader("ADMIN ACCESS")
@@ -197,10 +167,22 @@ elif mode == "🔒 Admin Panel":
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
         
+        # 1. ADD "DELETE" COLUMN (Default False)
+        if "Delete?" not in df.columns:
+            df.insert(0, "Delete?", False)
+        
+        st.write("Tick 'Delete?' to remove a player, then click Save.")
+        
+        # 2. SHOW EDITOR
         edited_df = st.data_editor(
             df, 
             num_rows="dynamic",
             column_config={
+                "Delete?": st.column_config.CheckboxColumn(
+                    "Delete?",
+                    help="Check this box to remove this player",
+                    default=False,
+                ),
                 "Payment Status": st.column_config.SelectboxColumn(
                     "Status",
                     options=["Pending", "Paid", "Rejected"],
@@ -210,9 +192,19 @@ elif mode == "🔒 Admin Panel":
             use_container_width=True
         )
         
-        if st.button("💾 SAVE CHANGES"):
+        # 3. SAVE LOGIC
+        if st.button("💾 SAVE CHANGES (DELETE CHECKED)"):
+            # Filter OUT the rows where 'Delete?' is True
+            rows_to_keep = edited_df[edited_df["Delete?"] == False]
+            
+            # Remove the 'Delete?' column before saving to Google Sheets
+            # (Because Google Sheets doesn't need that column)
+            final_data = rows_to_keep.drop(columns=["Delete?"])
+            
+            # Update Sheet
             sheet.clear()
-            sheet.append_row(df.columns.tolist())
-            sheet.append_rows(edited_df.values.tolist())
-            st.toast("Updated!", icon="✅")
+            sheet.append_row(final_data.columns.tolist())
+            sheet.append_rows(final_data.values.tolist())
+            
+            st.toast("Updated! Deleted rows removed.", icon="🗑️")
             st.rerun()
