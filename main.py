@@ -11,78 +11,82 @@ ADMIN_PASSWORD = "bola123"
 # --- PAGE SETUP ---
 st.set_page_config(page_title="KroniBola", page_icon="⚽", layout="centered")
 
-# --- THEME CONFIGURATION (MATCHING YOUR LOGO) ---
-NEON_GREEN = "#CCFF00"  # The specific lime green from your logo
-DARK_BG = "#121212"     # Matte black
-CARD_BG = "#1E1E1E"     # Slightly lighter dark for cards
-TEXT_COLOR = "#FFFFFF"
+# --- THEME COLORS ---
+NEON_GREEN = "#CCFF00"
+DARK_BG = "#121212"
+CARD_BG = "#1E1E1E"
 
-# --- CUSTOM CSS ---
+# --- CUSTOM CSS (FIXED BUTTON VISIBILITY) ---
 st.markdown(f"""
     <style>
-    /* 1. FORCE DARK BACKGROUND */
+    /* 1. BACKGROUND */
     .stApp {{
         background-color: {DARK_BG};
     }}
     
-    /* 2. CUSTOM CARDS (Dark Grey with Neon Border) */
+    /* 2. CARDS */
     .css-1r6slb0, .css-keje6w, .stForm {{
         background-color: {CARD_BG};
-        padding: 2rem;
-        border-radius: 15px;
         border: 1px solid #333;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        border-radius: 15px;
+        padding: 20px;
     }}
     
-    /* 3. NEON GREEN HEADERS */
+    /* 3. HEADERS */
     h1, h2, h3 {{
         color: {NEON_GREEN} !important;
-        font-family: 'Arial Black', sans-serif; /* Bold Sporty Font */
+        font-family: 'Arial Black', sans-serif;
         text-transform: uppercase;
-        letter-spacing: 1px;
     }}
     
-    /* 4. TEXT COLOR FIX */
-    p, label, .stMarkdown {{
-        color: {TEXT_COLOR} !important;
+    /* 4. TEXT FIXES */
+    p, label, .stMarkdown, .stCaption {{
+        color: #E0E0E0 !important;
     }}
     
-    /* 5. INPUT FIELDS (Dark Mode) */
+    /* 5. INPUT FIELDS */
     .stTextInput input, .stDateInput input {{
-        background-color: #2b2b2b !important;
+        background-color: #2D2D2D !important;
         color: white !important;
-        border: 1px solid #444 !important;
+        border: 1px solid #555 !important;
     }}
-    
-    /* 6. BUTTONS (Neon Green with Black Text) */
+
+    /* 6. *** SUPER VISIBLE BUTTON *** */
     div.stButton > button {{
         background-color: {NEON_GREEN} !important;
-        color: black !important; /* Black text on neon green is easier to read */
-        border-radius: 8px;
-        border: none;
-        padding: 12px 24px;
-        font-weight: 800; /* Extra Bold */
+        color: #000000 !important;  /* Pure Black Text */
+        font-size: 20px !important; /* Much Bigger */
+        font-weight: 900 !important; /* Extra Thick */
+        padding: 15px 30px !important;
+        border-radius: 10px !important;
+        border: 2px solid {NEON_GREEN} !important;
         text-transform: uppercase;
+        letter-spacing: 1.5px;
         width: 100%;
+        box-shadow: 0 0 15px rgba(204, 255, 0, 0.4); /* Neon Glow */
         transition: all 0.3s ease;
     }}
+    
     div.stButton > button:hover {{
-        background-color: white !important; /* Flash white on hover */
-        color: black !important;
-        box-shadow: 0 0 10px {NEON_GREEN};
+        background-color: black !important;
+        color: {NEON_GREEN} !important;
+        border: 2px solid {NEON_GREEN} !important;
+        box-shadow: 0 0 25px rgba(204, 255, 0, 0.9); /* Bright Glow on Hover */
+        transform: scale(1.02);
     }}
 
     /* 7. WHATSAPP BUTTON */
     div.stLinkButton > a {{
         background-color: #25D366 !important;
         color: white !important;
-        border-radius: 8px;
+        border: none;
         font-weight: bold;
         text-align: center;
-        border: none;
+        padding: 10px;
     }}
     
-    /* 8. DATAFRAME FIXES */
+    /* 8. TABLE FIX */
     [data-testid="stDataFrame"] {{
         background-color: {CARD_BG};
     }}
@@ -100,17 +104,14 @@ except Exception as e:
     st.error(f"⚠️ Connection Error: {e}")
     st.stop()
 
-# --- HEADER SECTION ---
-col_logo, col_title = st.columns([1, 4])
-with col_title:
-    # Centered Title
-    st.title("KRONI BOLA")
+# --- HEADER ---
+st.title("KRONI BOLA")
 st.write("___")
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("MENU")
-    mode = st.radio("Select Option", ["⚽ New Registration", "📝 Player List", "🔒 Admin Panel"])
+    mode = st.radio("Navigate", ["⚽ New Registration", "📝 Player List", "🔒 Admin Panel"])
 
 # ==========================================
 # PAGE 1: REGISTRATION
@@ -118,35 +119,37 @@ with st.sidebar:
 if mode == "⚽ New Registration":
     st.subheader("Join the Squad")
     
-    # CARD LAYOUT
     with st.container():
-        # Using columns to create layout
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            st.markdown(f"<h4 style='color:white'>1. SCAN QR</h4>", unsafe_allow_html=True)
+            st.markdown("#### 1. SCAN QR")
             try:
                 st.image("pay.jpg", use_container_width=True)
             except:
-                st.warning("Admin: Upload pay.jpg to GitHub")
+                st.warning("Upload pay.jpg to GitHub")
 
         with col2:
-            st.markdown(f"<h4 style='color:white'>2. DETAILS</h4>", unsafe_allow_html=True)
+            st.markdown("#### 2. DETAILS")
             with st.form("entry_form", clear_on_submit=True):
                 player_name = st.text_input("Your Nickname")
                 session_date = st.date_input("Match Date")
                 
-                submitted = st.form_submit_button("CONFIRM SLOT")
+                # SPACER to push button down slightly
+                st.write("") 
+                
+                # THE BIG BUTTON
+                submitted = st.form_submit_button("✅ CONFIRM SLOT")
 
                 if submitted and player_name:
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     row_data = [str(session_date), player_name, "Pending", "15", timestamp]
                     sheet.append_row(row_data)
                     
-                    st.success(f"✅ {player_name} added to the lineup!")
+                    st.success(f"DONE! {player_name} is in.")
                     
                     # WhatsApp Button
-                    msg = f"Hi Admin, I just registered for the game on {session_date}. Name: {player_name}. Here is my receipt:"
+                    msg = f"Hi Admin, I registered for {session_date}. Name: {player_name}."
                     wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
                     st.link_button("📤 SEND RECEIPT (WHATSAPP)", wa_link)
                     
@@ -165,30 +168,28 @@ elif mode == "📝 Player List":
             df = pd.DataFrame(data)
             display_df = df[["Session Date", "Player Name", "Payment Status"]]
             
-            # Custom Highlighter for Dark Mode
             def highlight_status(val):
                 if val == 'Paid':
                     return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
                 elif val == 'Pending':
-                    return 'background-color: #333333; color: orange; font-weight: bold;'
+                    return 'background-color: #444; color: orange; font-weight: bold;'
                 return ''
 
             st.dataframe(
                 display_df.style.applymap(highlight_status, subset=['Payment Status']),
-                use_container_width=True,
-                height=500
+                use_container_width=True
             )
         else:
             st.info("No players yet.")
-    except Exception as e:
-        st.write("List is empty or loading error.")
+    except:
+        st.write("List is empty.")
 
 # ==========================================
 # PAGE 3: ADMIN PANEL
 # ==========================================
 elif mode == "🔒 Admin Panel":
     st.subheader("ADMIN ACCESS")
-    password = st.text_input("Enter Password", type="password")
+    password = st.text_input("Password", type="password")
     
     if password == ADMIN_PASSWORD:
         st.success("ACCESS GRANTED")
@@ -196,7 +197,6 @@ elif mode == "🔒 Admin Panel":
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
         
-        st.write("Update Status:")
         edited_df = st.data_editor(
             df, 
             num_rows="dynamic",
@@ -214,5 +214,5 @@ elif mode == "🔒 Admin Panel":
             sheet.clear()
             sheet.append_row(df.columns.tolist())
             sheet.append_rows(edited_df.values.tolist())
-            st.toast("Database Updated!", icon="✅")
+            st.toast("Updated!", icon="✅")
             st.rerun()
