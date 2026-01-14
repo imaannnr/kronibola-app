@@ -5,13 +5,89 @@ import pandas as pd
 from datetime import datetime
 
 # --- CONFIGURATION ---
-# Replace this with your own phone number (Format: 601xxxx)
 ADMIN_WHATSAPP = "60126183827" 
-ADMIN_PASSWORD = "bola123"  # Change this to a secret password
+ADMIN_PASSWORD = "bola123"      
 
 # --- PAGE SETUP ---
-st.set_page_config(page_title="KroniBola App", page_icon="⚽", layout="wide")
-st.title("⚽ KroniBola Registration")
+st.set_page_config(page_title="KroniBola", page_icon="⚽", layout="centered")
+
+# --- THEME CONFIGURATION (MATCHING YOUR LOGO) ---
+NEON_GREEN = "#CCFF00"  # The specific lime green from your logo
+DARK_BG = "#121212"     # Matte black
+CARD_BG = "#1E1E1E"     # Slightly lighter dark for cards
+TEXT_COLOR = "#FFFFFF"
+
+# --- CUSTOM CSS ---
+st.markdown(f"""
+    <style>
+    /* 1. FORCE DARK BACKGROUND */
+    .stApp {{
+        background-color: {DARK_BG};
+    }}
+    
+    /* 2. CUSTOM CARDS (Dark Grey with Neon Border) */
+    .css-1r6slb0, .css-keje6w, .stForm {{
+        background-color: {CARD_BG};
+        padding: 2rem;
+        border-radius: 15px;
+        border: 1px solid #333;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }}
+    
+    /* 3. NEON GREEN HEADERS */
+    h1, h2, h3 {{
+        color: {NEON_GREEN} !important;
+        font-family: 'Arial Black', sans-serif; /* Bold Sporty Font */
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }}
+    
+    /* 4. TEXT COLOR FIX */
+    p, label, .stMarkdown {{
+        color: {TEXT_COLOR} !important;
+    }}
+    
+    /* 5. INPUT FIELDS (Dark Mode) */
+    .stTextInput input, .stDateInput input {{
+        background-color: #2b2b2b !important;
+        color: white !important;
+        border: 1px solid #444 !important;
+    }}
+    
+    /* 6. BUTTONS (Neon Green with Black Text) */
+    div.stButton > button {{
+        background-color: {NEON_GREEN} !important;
+        color: black !important; /* Black text on neon green is easier to read */
+        border-radius: 8px;
+        border: none;
+        padding: 12px 24px;
+        font-weight: 800; /* Extra Bold */
+        text-transform: uppercase;
+        width: 100%;
+        transition: all 0.3s ease;
+    }}
+    div.stButton > button:hover {{
+        background-color: white !important; /* Flash white on hover */
+        color: black !important;
+        box-shadow: 0 0 10px {NEON_GREEN};
+    }}
+
+    /* 7. WHATSAPP BUTTON */
+    div.stLinkButton > a {{
+        background-color: #25D366 !important;
+        color: white !important;
+        border-radius: 8px;
+        font-weight: bold;
+        text-align: center;
+        border: none;
+    }}
+    
+    /* 8. DATAFRAME FIXES */
+    [data-testid="stDataFrame"] {{
+        background-color: {CARD_BG};
+    }}
+    </style>
+""", unsafe_allow_html=True)
 
 # --- CONNECT TO GOOGLE SHEETS ---
 try:
@@ -24,88 +100,103 @@ except Exception as e:
     st.error(f"⚠️ Connection Error: {e}")
     st.stop()
 
-# --- SIDEBAR (ADMIN & INFO) ---
+# --- HEADER SECTION ---
+col_logo, col_title = st.columns([1, 4])
+with col_title:
+    # Centered Title
+    st.title("KRONI BOLA")
+st.write("___")
+
+# --- SIDEBAR ---
 with st.sidebar:
-    st.header("📋 Menu")
-    mode = st.radio("Select Mode", ["Player Registration", "Admin Panel"])
-    
-    st.divider()
-    st.info("ℹ️ Payments are non-refundable.")
+    st.header("MENU")
+    mode = st.radio("Select Option", ["⚽ New Registration", "📝 Player List", "🔒 Admin Panel"])
 
 # ==========================================
-# MODE 1: PLAYER REGISTRATION
+# PAGE 1: REGISTRATION
 # ==========================================
-if mode == "Player Registration":
-    col1, col2 = st.columns([1, 2])
+if mode == "⚽ New Registration":
+    st.subheader("Join the Squad")
     
-    # --- SECTION A: QR CODE ---
-    with col1:
-        st.subheader("Step 1: Pay Here")
-        try:
-            # Displays the image you uploaded to GitHub
-            st.image("pay.jpg", caption="Scan with TNG/Bank App", width=250)
-        except:
-            st.warning("⚠️ Admin: Please upload 'pay.jpg' to GitHub.")
+    # CARD LAYOUT
+    with st.container():
+        # Using columns to create layout
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown(f"<h4 style='color:white'>1. SCAN QR</h4>", unsafe_allow_html=True)
+            try:
+                st.image("pay.jpg", use_container_width=True)
+            except:
+                st.warning("Admin: Upload pay.jpg to GitHub")
 
-    # --- SECTION B: FORM ---
-    with col2:
-        st.subheader("Step 2: Register Details")
-        with st.form("entry_form", clear_on_submit=True):
-            player_name = st.text_input("Your Name / Nickname")
-            session_date = st.date_input("Session Date")
-            
-            submitted = st.form_submit_button("✅ Register Now")
+        with col2:
+            st.markdown(f"<h4 style='color:white'>2. DETAILS</h4>", unsafe_allow_html=True)
+            with st.form("entry_form", clear_on_submit=True):
+                player_name = st.text_input("Your Nickname")
+                session_date = st.date_input("Match Date")
+                
+                submitted = st.form_submit_button("CONFIRM SLOT")
 
-            if submitted and player_name:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # Format: Date, Name, Status, Amount, Time
-                row_data = [str(session_date), player_name, "Pending", "15", timestamp]
-                sheet.append_row(row_data)
-                
-                st.success(f"Success! {player_name} is on the list.")
-                
-                # --- WHATSAPP LINK GENERATOR ---
-                # Creates a pre-filled WhatsApp link
-                msg = f"Hi Admin, I have registered for {session_date}. Here is my receipt for {player_name}."
-                wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
-                st.link_button("📤 Click here to Send Receipt on WhatsApp", wa_link)
-                
-            elif submitted:
-                st.error("Please enter your name.")
+                if submitted and player_name:
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    row_data = [str(session_date), player_name, "Pending", "15", timestamp]
+                    sheet.append_row(row_data)
+                    
+                    st.success(f"✅ {player_name} added to the lineup!")
+                    
+                    # WhatsApp Button
+                    msg = f"Hi Admin, I just registered for the game on {session_date}. Name: {player_name}. Here is my receipt:"
+                    wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
+                    st.link_button("📤 SEND RECEIPT (WHATSAPP)", wa_link)
+                    
+                elif submitted:
+                    st.error("Please enter your name.")
 
-    # --- SECTION C: PUBLIC LIST ---
-    st.divider()
-    st.subheader("📝 Registered Players")
+# ==========================================
+# PAGE 2: PLAYER LIST
+# ==========================================
+elif mode == "📝 Player List":
+    st.subheader("TEAM SHEET")
+    
     try:
         data = sheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
-            # Filter to show only Date, Name, Status
-            public_df = df[["Session Date", "Player Name", "Payment Status"]]
-            st.dataframe(public_df, use_container_width=True)
+            display_df = df[["Session Date", "Player Name", "Payment Status"]]
+            
+            # Custom Highlighter for Dark Mode
+            def highlight_status(val):
+                if val == 'Paid':
+                    return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
+                elif val == 'Pending':
+                    return 'background-color: #333333; color: orange; font-weight: bold;'
+                return ''
+
+            st.dataframe(
+                display_df.style.applymap(highlight_status, subset=['Payment Status']),
+                use_container_width=True,
+                height=500
+            )
         else:
             st.info("No players yet.")
-    except:
-        st.write("List is empty.")
+    except Exception as e:
+        st.write("List is empty or loading error.")
 
 # ==========================================
-# MODE 2: ADMIN PANEL (SECURE)
+# PAGE 3: ADMIN PANEL
 # ==========================================
-elif mode == "Admin Panel":
-    st.header("🔒 Admin Area")
-    password = st.text_input("Enter Admin Password", type="password")
+elif mode == "🔒 Admin Panel":
+    st.subheader("ADMIN ACCESS")
+    password = st.text_input("Enter Password", type="password")
     
     if password == ADMIN_PASSWORD:
-        st.success("Access Granted")
+        st.success("ACCESS GRANTED")
         
-        # Load Data
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
         
-        st.subheader("Manage Payments")
-        st.write("Edit the 'Payment Status' below and click Save.")
-        
-        # 1. EDITABLE TABLE
+        st.write("Update Status:")
         edited_df = st.data_editor(
             df, 
             num_rows="dynamic",
@@ -115,19 +206,13 @@ elif mode == "Admin Panel":
                     options=["Pending", "Paid", "Rejected"],
                     required=True
                 )
-            }
+            },
+            use_container_width=True
         )
         
-        # 2. SAVE BUTTON
-        if st.button("💾 Save Changes to Google Sheet"):
-            # Clear old sheet and upload new data
+        if st.button("💾 SAVE CHANGES"):
             sheet.clear()
-            # Add headers back
             sheet.append_row(df.columns.tolist())
-            # Add new data
             sheet.append_rows(edited_df.values.tolist())
-            st.toast("✅ Database Updated!")
+            st.toast("Database Updated!", icon="✅")
             st.rerun()
-            
-    elif password:
-        st.error("Wrong Password!")
