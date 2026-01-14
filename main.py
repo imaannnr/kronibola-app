@@ -72,7 +72,7 @@ try:
     client = gspread.authorize(creds)
     db = client.open("KroniBola DB")
     sheet_regs = db.worksheet("Registrations")
-    sheet_sessions = db.worksheet("Sessions") # Ensure Tab is named "Sessions"
+    sheet_sessions = db.worksheet("Sessions") 
 except Exception as e:
     st.error(f"⚠️ CONNECTION ERROR: {e}")
     st.stop()
@@ -92,34 +92,29 @@ with st.sidebar:
 if mode == "⚽ Register for Match":
     st.subheader("SELECT A MATCH")
     
-    # 1. Fetch Open Sessions
     try:
         sessions_data = sheet_sessions.get_all_records()
         sessions_df = pd.DataFrame(sessions_data)
         
-        # Check if empty
         if sessions_df.empty:
-            st.warning("No sessions found in database. Admin: Please add sessions in Admin Panel.")
+            st.warning("No sessions found. Admin: Add sessions in Admin Panel.")
             st.stop()
             
-        # Filter for "Open" status only
-        # We use .get just in case column name is slightly wrong
-        if "Status" in sessions_df.columns:
-            open_sessions = sessions_df[sessions_df["Status"] == "Open"]
-        else:
-            st.error("Error: Column 'Status' not found in Sessions sheet.")
-            st.stop()
+        # Ensure 'Status' column exists
+        if "Status" not in sessions_df.columns:
+             # Create dummy status if missing to prevent crash
+             sessions_df["Status"] = "Open"
+
+        open_sessions = sessions_df[sessions_df["Status"] == "Open"]
         
         if open_sessions.empty:
-            st.info("No open games right now. Check back later!")
+            st.info("No open games right now.")
             st.stop()
             
-        # Create a display list (Name + Date)
         session_options = open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1).tolist()
         
         selected_option = st.selectbox("Choose Session:", session_options)
         
-        # Get details of selected session
         selected_row = open_sessions[open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1) == selected_option].iloc[0]
         
         S_NAME = selected_row['Session Name']
@@ -132,7 +127,6 @@ if mode == "⚽ Register for Match":
         st.error(f"⚠️ Error loading sessions: {e}")
         st.stop()
 
-    # 2. Registration Form
     st.write("")
     with st.container():
         col1, col2 = st.columns([1, 1])
@@ -164,11 +158,10 @@ if mode == "⚽ Register for Match":
                     st.error("Name Required")
 
 # ==========================================
-# PAGE 2: PLAYER LIST (FILTERABLE)
+# PAGE 2: PLAYER LIST
 # ==========================================
 elif mode == "📝 Player List":
     st.subheader("TEAM SHEET")
-    
     try:
         reg_data = sheet_regs.get_all_records()
         reg_df = pd.DataFrame(reg_data)
@@ -198,12 +191,11 @@ elif mode == "📝 Player List":
                 st.info(f"No players found for {selected_date_view}.")
         else:
             st.info("No data available.")
-            
     except Exception as e:
         st.write(f"Loading Error: {e}")
 
 # ==========================================
-# PAGE 3: ADMIN PANEL (DEBUGGER MODE)
+# PAGE 3: ADMIN PANEL (FIXED)
 # ==========================================
 elif mode == "🔒 Admin Panel":
     st.subheader("ADMIN ACCESS")
@@ -219,20 +211,16 @@ elif mode == "🔒 Admin Panel":
             st.write("Edit upcoming games here.")
             
             try:
-                # 1. READ RAW DATA
                 s_data = sheet_sessions.get_all_records()
                 s_df = pd.DataFrame(s_data)
                 
-                # 2. DEBUGGING: Check if empty
                 if s_df.empty:
-                    st.warning("⚠️ The 'Sessions' sheet is found, but it looks empty.")
-                    st.info("Try adding one dummy row in Google Sheets (Row 2) and reload.")
-                    # Create a default empty dataframe so the app doesn't crash
-                    s_df = pd.DataFrame(columns=["Session Name", "Date", "Time", "Location", "Fee", "Status"])
-                
-                # 3. DEBUGGING: Print columns found
-                # This will show you on screen if you have a typo!
-                st.caption(f"Columns found in Google Sheet: {list(s_df.columns)}")
+                     s_df = pd.DataFrame(columns=["Session Name", "Date", "Time", "Location", "Fee", "Status"])
+
+                # --- ⚠️ THE FIX IS HERE ⚠️ ---
+                # We convert the 'Date' column from Text to Date Objects
+                if "Date" in s_df.columns:
+                     s_df["Date"] = pd.to_datetime(s_df["Date"], errors='coerce').dt.date
 
                 edited_schedule = st.data_editor(
                     s_df,
@@ -245,19 +233,21 @@ elif mode == "🔒 Admin Panel":
                 )
                 
                 if st.button("💾 SAVE SCHEDULE"):
+                    # We must convert Date BACK to String before saving to Google Sheets
+                    # otherwise Google Sheets gets confused
+                    save_df = edited_schedule.copy()
+                    save_df["Date"] = save_df["Date"].astype(str)
+                    
                     sheet_sessions.clear()
-                    sheet_sessions.append_row(s_df.columns.tolist())
-                    sheet_sessions.append_rows(edited_schedule.values.tolist())
+                    sheet_sessions.append_row(save_df.columns.tolist())
+                    sheet_sessions.append_rows(save_df.values.tolist())
                     st.toast("Schedule Updated!", icon="✅")
                     st.rerun()
             except Exception as e:
-                # 4. SHOW REAL ERROR
-                st.error(f"❌ CRITICAL ERROR: {e}")
-                st.error("Please double check your Google Sheet Headers exactly match the code.")
+                st.error(f"Error: {e}")
 
         # --- TAB 2: PLAYERS MANAGEMENT ---
         with tab_players:
-            # Same logic here...
             p_data = sheet_regs.get_all_records()
             p_df = pd.DataFrame(p_data)
             
