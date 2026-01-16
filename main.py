@@ -20,12 +20,13 @@ except Exception as e:
 # --- PAGE SETUP ---
 st.set_page_config(page_title="KroniBola", page_icon="⚽", layout="centered")
 
-# --- 🎨 THEME & DESIGN VARIABLES ---
+# --- THEME COLORS ---
 NEON_GREEN = "#CCFF00"
 TNG_BLUE = "#005EB8"
 WAITLIST_COLOR = "#00C4FF"
-# High Quality Stadium Background URL (Free to use from Unsplash)
-BG_IMAGE_URL = "https://unsplash.com/photos/a-black-and-white-photo-of-a-cell-phone-B_Z9jqassqE"
+
+# 🖼️ UPDATED BACKGROUND IMAGE (The one you requested)
+BG_IMAGE_URL = "https://images.unsplash.com/photo-1637775297511-26987546a94b?q=80&w=2560&auto=format&fit=crop"
 
 # --- 🖌️ CUSTOM CSS (GLASS UI + BACKGROUND) ---
 st.markdown(f"""
@@ -39,21 +40,21 @@ st.markdown(f"""
         background-attachment: fixed;
     }}
     
-    /* 2. DARK OVERLAY (To make text readable) */
+    /* 2. DARK OVERLAY (To make text readable on the b&w photo) */
     [data-testid="stAppViewContainer"]::before {{
         content: "";
         position: absolute;
         top: 0; left: 0; width: 100%; height: 100%;
-        background-color: rgba(0, 0, 0, 0.65); /* Dark tint */
+        background-color: rgba(0, 0, 0, 0.75); /* Darker tint for contrast */
         z-index: -1;
     }}
 
     /* 3. GLASSMOPHISM CARDS (Frosted Glass Effect) */
     .stForm, [data-testid="stDataFrame"], .guide-box, .css-1r6slb0, .stTabs {{
-        background-color: rgba(30, 30, 30, 0.6) !important; /* Semi-transparent black */
-        backdrop-filter: blur(12px); /* Blur effect */
+        background-color: rgba(20, 20, 20, 0.6) !important;
+        backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1); /* Thin white border */
+        border: 1px solid rgba(255, 255, 255, 0.1);
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
         border-radius: 15px;
         padding: 20px;
