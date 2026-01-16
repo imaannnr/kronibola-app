@@ -29,6 +29,7 @@ BG_IMAGE_URL = "https://images.unsplash.com/photo-1637775297511-26987546a94b?q=8
 # --- 🖌️ CUSTOM CSS ---
 st.markdown(f"""
     <style>
+    /* 1. MAIN BACKGROUND IMAGE */
     [data-testid="stAppViewContainer"] {{
         background-image: url("{BG_IMAGE_URL}");
         background-size: cover;
@@ -37,6 +38,7 @@ st.markdown(f"""
         background-attachment: fixed;
     }}
     
+    /* 2. DARK OVERLAY */
     [data-testid="stAppViewContainer"]::before {{
         content: "";
         position: absolute;
@@ -45,6 +47,7 @@ st.markdown(f"""
         z-index: -1;
     }}
 
+    /* 3. GLASSMOPHISM CARDS */
     .stForm, [data-testid="stDataFrame"], .guide-box, .css-1r6slb0, .stTabs {{
         background-color: rgba(20, 20, 20, 0.6) !important;
         backdrop-filter: blur(12px);
@@ -55,21 +58,27 @@ st.markdown(f"""
         padding: 20px;
     }}
 
+    /* 4. TYPOGRAPHY - UPDATED FOR IMAGE STYLE */
     h1, h2, h3 {{
         color: {NEON_GREEN} !important;
         font-family: 'Arial Black', sans-serif;
+        font-weight: 900;
+        font-style: italic;
         text-transform: uppercase;
         text-shadow: 0 0 10px rgba(204, 255, 0, 0.3);
+        letter-spacing: 1px;
     }}
     
     p, label, .stMarkdown, .stCaption, .stText, h4 {{ color: #FFFFFF !important; }}
     
+    /* 5. INPUT FIELDS */
     .stTextInput input, .stDateInput input, .stTimeInput input, .stSelectbox div[data-baseweb="select"] {{
         background-color: rgba(0, 0, 0, 0.5) !important;
         color: white !important;
         border: 1px solid #555 !important;
     }}
 
+    /* 6. NEON BUTTONS */
     div.stButton > button {{
         background-color: {NEON_GREEN} !important;
         color: #000000 !important;
@@ -88,6 +97,7 @@ st.markdown(f"""
         transform: scale(1.02);
     }}
     
+    /* Disabled Button */
     div.stButton > button:disabled {{
         background-color: rgba(255,255,255,0.1) !important;
         color: #aaa !important;
@@ -95,6 +105,7 @@ st.markdown(f"""
         box-shadow: none;
     }}
 
+    /* 7. TNG BUTTON */
     .tng-btn {{
         background-color: {TNG_BLUE};
         color: white !important;
@@ -110,11 +121,13 @@ st.markdown(f"""
         backdrop-filter: blur(5px);
     }}
 
+    /* 8. GUIDE BOX SPECIFIC */
     .guide-box {{
         border-left: 5px solid {NEON_GREEN};
         margin-bottom: 20px;
     }}
     
+    /* Sidebar Transparent */
     [data-testid="stSidebar"] {{
         background-color: rgba(10, 10, 10, 0.9);
         border-right: 1px solid #333;
@@ -321,7 +334,6 @@ elif mode == "🔒 Admin Panel":
         
         tab_schedule, tab_players = st.tabs(["📅 MANAGE SCHEDULE", "👥 MANAGE PLAYERS"])
         
-        # TAB 1: SCHEDULE
         with tab_schedule:
             st.write("Edit upcoming games here.")
             try:
@@ -356,11 +368,8 @@ elif mode == "🔒 Admin Panel":
             except Exception as e:
                 st.error(f"Error: {e}")
 
-        # TAB 2: PLAYERS
         with tab_players:
             st.markdown("### 🔍 MANAGE PLAYERS")
-            
-            # --- ⚠️ RESTORED ADMIN NOTE ---
             st.info("ℹ️ NOTE: If you move a player from 'Waitlist' to 'Pending', click '📲 Send WhatsApp' to notify them to pay.")
             
             p_data = sheet_regs.get_all_records()
@@ -383,11 +392,6 @@ elif mode == "🔒 Admin Panel":
                 if "Delete?" not in filtered_view.columns:
                     filtered_view.insert(0, "Delete?", False)
                 
-                # --- GENERATE NOTIFY LINKS ---
-                # We construct a WhatsApp link for every player: "Hi [Name], slot open for [Date]! Pay RM[Fee]."
-                # 1. Clean phone (remove ')
-                # 2. Build URL
-                
                 def create_notify_link(row):
                     try:
                         phone = str(row['Phone']).replace("'", "").strip()
@@ -396,16 +400,13 @@ elif mode == "🔒 Admin Panel":
                         fee = row['Amount']
                         msg = f"Hi {name}, good news! A slot opened up for the game on {date}. Please pay RM{fee} to confirm your spot."
                         if phone:
-                            return f"https://wa.me/6{phone}?text={msg}" # Assuming Malaysia '6' prefix if missing, usually users put 012...
+                            return f"https://wa.me/6{phone}?text={msg}"
                         return None
-                    except:
-                        return None
+                    except: return None
 
                 filtered_view['Notify'] = filtered_view.apply(create_notify_link, axis=1)
-
                 display_df = filtered_view.drop(columns=["Hours_Ago"])
 
-                # EDITABLE TABLE WITH NOTIFY BUTTON
                 edited_players = st.data_editor(
                     display_df, 
                     num_rows="dynamic",
@@ -414,7 +415,7 @@ elif mode == "🔒 Admin Panel":
                         "Overdue": st.column_config.CheckboxColumn("Overdue (>1h?)", disabled=True),
                         "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Waitlist", "Rejected"]),
                         "Phone": st.column_config.TextColumn("Phone"),
-                        "Notify": st.column_config.LinkColumn("Notify Waitlist", display_text="📲 Send WhatsApp"), # <--- NEW BUTTON
+                        "Notify": st.column_config.LinkColumn("Notify Waitlist", display_text="📲 Send WhatsApp"),
                         "Timestamp": st.column_config.DatetimeColumn("Registered At", format="h:mm a")
                     },
                     use_container_width=True
@@ -424,10 +425,7 @@ elif mode == "🔒 Admin Panel":
                     rows_to_update = edited_players[edited_players["Delete?"] == False]
                     other_dates_df = p_df[p_df['Session Date'] != selected_filter]
                     
-                    # Clean up helper columns before saving to Google Sheets
-                    # 'Notify' column exists in dataframe but not in Google Sheet, so we drop it
                     rows_to_update = rows_to_update.drop(columns=["Delete?", "Overdue", "Notify"])
-                    
                     rows_to_update["Timestamp"] = rows_to_update["Timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
                     
                     final_combined_df = pd.concat([other_dates_df, rows_to_update], ignore_index=True)
