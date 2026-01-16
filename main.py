@@ -25,7 +25,7 @@ NEON_GREEN = "#CCFF00"
 TNG_BLUE = "#005EB8"
 WAITLIST_COLOR = "#00C4FF"
 # High Quality Stadium Background URL (Free to use from Unsplash)
-BG_IMAGE_URL = "https://unsplash.com/photos/a-black-and-white-photo-of-water-and-sand-_GH9LwhlSO4"
+BG_IMAGE_URL = "https://unsplash.com/photos/a-black-and-white-photo-of-a-cell-phone-B_Z9jqassqE"
 
 # --- 🖌️ CUSTOM CSS (GLASS UI + BACKGROUND) ---
 st.markdown(f"""
