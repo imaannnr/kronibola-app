@@ -4,59 +4,79 @@ from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime
 
-# --- PAGE SETUP ---
-st.set_page_config(page_title="KroniBola", page_icon="⚽", layout="centered")
-
-# --- 🔒 SECURITY SETUP (SAFE MODE) ---
+# --- CONFIGURATION ---
+# 🔒 SECURE PASSWORD FETCH
 try:
-    # Try to find the specific key
     if "admin_password" in st.secrets:
         ADMIN_PASSWORD = st.secrets["admin_password"]
     else:
-        # Fallback if key is missing/misspelled
-        st.error("🚨 Error: Key 'admin_password' not found.")
-        st.info(f"Keys found in secrets: {list(st.secrets.keys())}") # This tells you what you actually typed!
+        st.error("🚨 Key 'admin_password' missing in Secrets.")
         st.stop()
-        
     ADMIN_WHATSAPP = "60126183827" 
 except Exception as e:
     st.error(f"🚨 Security Error: {e}")
     st.stop()
 
-# --- THEME COLORS ---
+# --- PAGE SETUP ---
+st.set_page_config(page_title="KroniBola", page_icon="⚽", layout="centered")
+
+# --- 🎨 THEME & DESIGN VARIABLES ---
 NEON_GREEN = "#CCFF00"
-DARK_BG = "#121212"
-CARD_BG = "#1E1E1E"
 TNG_BLUE = "#005EB8"
 WAITLIST_COLOR = "#00C4FF"
+# High Quality Stadium Background URL (Free to use from Unsplash)
+BG_IMAGE_URL = "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?q=80&w=2548&auto=format&fit=crop"
 
-# --- CUSTOM CSS ---
+# --- 🖌️ CUSTOM CSS (GLASS UI + BACKGROUND) ---
 st.markdown(f"""
     <style>
-    .stApp {{ background-color: {DARK_BG}; }}
+    /* 1. MAIN BACKGROUND IMAGE */
+    [data-testid="stAppViewContainer"] {{
+        background-image: url("{BG_IMAGE_URL}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
     
-    .css-1r6slb0, .css-keje6w, .stForm {{
-        background-color: {CARD_BG};
-        border: 1px solid #333;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    /* 2. DARK OVERLAY (To make text readable) */
+    [data-testid="stAppViewContainer"]::before {{
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0, 0, 0, 0.65); /* Dark tint */
+        z-index: -1;
+    }}
+
+    /* 3. GLASSMOPHISM CARDS (Frosted Glass Effect) */
+    .stForm, [data-testid="stDataFrame"], .guide-box, .css-1r6slb0, .stTabs {{
+        background-color: rgba(30, 30, 30, 0.6) !important; /* Semi-transparent black */
+        backdrop-filter: blur(12px); /* Blur effect */
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1); /* Thin white border */
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
         border-radius: 15px;
         padding: 20px;
     }}
-    
+
+    /* 4. TYPOGRAPHY */
     h1, h2, h3 {{
         color: {NEON_GREEN} !important;
         font-family: 'Arial Black', sans-serif;
         text-transform: uppercase;
+        text-shadow: 0 0 10px rgba(204, 255, 0, 0.3);
     }}
     
-    p, label, .stMarkdown, .stCaption, .stText {{ color: #E0E0E0 !important; }}
+    p, label, .stMarkdown, .stCaption, .stText, h4 {{ color: #FFFFFF !important; }}
     
+    /* 5. INPUT FIELDS */
     .stTextInput input, .stDateInput input, .stTimeInput input, .stSelectbox div[data-baseweb="select"] {{
-        background-color: #2D2D2D !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
         color: white !important;
         border: 1px solid #555 !important;
     }}
 
+    /* 6. NEON BUTTONS */
     div.stButton > button {{
         background-color: {NEON_GREEN} !important;
         color: #000000 !important;
@@ -66,20 +86,24 @@ st.markdown(f"""
         border: 2px solid {NEON_GREEN} !important;
         width: 100%;
         transition: all 0.3s ease;
+        border-radius: 8px;
     }}
     div.stButton > button:hover {{
-        background-color: black !important;
-        color: {NEON_GREEN} !important;
-        box-shadow: 0 0 15px {NEON_GREEN};
+        background-color: white !important;
+        color: black !important;
+        box-shadow: 0 0 20px {NEON_GREEN};
+        transform: scale(1.02);
     }}
-
+    
+    /* Disabled Button */
     div.stButton > button:disabled {{
-        background-color: #555 !important;
-        color: #888 !important;
-        border: 2px solid #555 !important;
-        cursor: not-allowed;
+        background-color: rgba(255,255,255,0.1) !important;
+        color: #aaa !important;
+        border: 1px solid #555 !important;
+        box-shadow: none;
     }}
 
+    /* 7. TNG BUTTON */
     .tng-btn {{
         background-color: {TNG_BLUE};
         color: white !important;
@@ -91,18 +115,21 @@ st.markdown(f"""
         font-weight: bold;
         margin-top: 10px;
         margin-bottom: 10px;
-        border: 1px solid white;
+        border: 1px solid rgba(255,255,255,0.2);
+        backdrop-filter: blur(5px);
     }}
-    
+
+    /* 8. GUIDE BOX SPECIFIC */
     .guide-box {{
-        background-color: #333;
-        padding: 15px;
-        border-radius: 10px;
         border-left: 5px solid {NEON_GREEN};
         margin-bottom: 20px;
     }}
-
-    [data-testid="stDataFrame"] {{ background-color: {CARD_BG}; }}
+    
+    /* Sidebar Transparent */
+    [data-testid="stSidebar"] {{
+        background-color: rgba(10, 10, 10, 0.9);
+        border-right: 1px solid #333;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -119,8 +146,20 @@ except Exception as e:
     st.error(f"⚠️ CONNECTION ERROR: {e}")
     st.stop()
 
-# --- HEADER ---
-st.title("KRONI BOLA")
+# --- 🖼️ LOGO & HEADER ---
+col_logo, col_title = st.columns([1, 3])
+
+with col_logo:
+    try:
+        # ⚠️ MAKE SURE YOU UPLOAD 'logo.png' TO GITHUB
+        st.image("logo.png", width=110) 
+    except:
+        st.write("⚽") # Fallback emoji if logo missing
+
+with col_title:
+    st.title("KRONI BOLA")
+    st.caption("EST. 2026")
+
 st.write("___")
 
 # --- SIDEBAR ---
@@ -132,7 +171,7 @@ with st.sidebar:
 # PAGE 1: REGISTRATION + LIST
 # ==========================================
 if mode == "⚽ Register & Lineup":
-    st.subheader("SELECT A MATCH")
+    st.subheader("Match Day")
     
     st.markdown(f"""
     <div class="guide-box">
@@ -196,6 +235,7 @@ if mode == "⚽ Register & Lineup":
 
     st.write("")
     
+    # --- GLASS CARD FORM ---
     with st.container():
         st.caption(f"SPOTS FILLED: {current_count} / {S_MAX}")
         progress = min(current_count / S_MAX, 1.0)
@@ -237,7 +277,6 @@ if mode == "⚽ Register & Lineup":
                         st.error("⚠️ Please fill in both Name and Phone Number.")
                         st.stop()
                     
-                    # Phone Validation
                     clean_phone = player_phone.replace("-", "").replace(" ", "")
                     if not clean_phone.isdigit():
                         st.error("⚠️ Invalid Phone: Digits only please.")
@@ -246,7 +285,6 @@ if mode == "⚽ Register & Lineup":
                         st.error("⚠️ Invalid Phone: Length incorrect.")
                         st.stop()
 
-                    # Name Validation
                     if not reg_df.empty:
                         current_session_regs = reg_df[reg_df['Session Date'] == str(S_DATE)]
                         taken_names = current_session_regs['Player Name'].astype(str).str.lower().str.strip().tolist()
@@ -283,7 +321,6 @@ if mode == "⚽ Register & Lineup":
             display_df['Sort'] = display_df['Payment Status'].map(status_order)
             display_df = display_df.sort_values('Sort').drop(columns=['Sort'])
             
-            # Hide Phone
             if "Player Name" in display_df.columns and "Payment Status" in display_df.columns:
                 display_df = display_df[["Player Name", "Payment Status"]]
             
@@ -299,6 +336,7 @@ if mode == "⚽ Register & Lineup":
     else:
         st.info("No players yet.")
 
+
 # ==========================================
 # PAGE 2: ADMIN PANEL
 # ==========================================
@@ -311,7 +349,6 @@ elif mode == "🔒 Admin Panel":
         
         tab_schedule, tab_players = st.tabs(["📅 MANAGE SCHEDULE", "👥 MANAGE PLAYERS"])
         
-        # TAB 1: SCHEDULE
         with tab_schedule:
             st.write("Edit upcoming games here.")
             try:
@@ -346,10 +383,8 @@ elif mode == "🔒 Admin Panel":
             except Exception as e:
                 st.error(f"Error: {e}")
 
-        # TAB 2: PLAYERS
         with tab_players:
             st.markdown("### 🔍 MANAGE PLAYERS")
-            st.info("ℹ️ Note: Promote top Waitlist player if a slot opens.")
             
             p_data = sheet_regs.get_all_records()
             p_df = pd.DataFrame(p_data)
