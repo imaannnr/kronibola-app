@@ -128,7 +128,7 @@ if mode == "⚽ Register & Lineup":
         <p style="font-size:14px; margin-top:5px;">
         <b>1. Screenshot</b> the QR Code below.<br>
         <b>2. Click</b> Blue Button (TNG).<br>
-        <b>3. Register</b> Name.<br>
+        <b>3. Register</b> Name & Phone.<br>
         <b>4. Send</b> Receipt via WhatsApp.
         </p>
     </div>
@@ -166,7 +166,6 @@ if mode == "⚽ Register & Lineup":
         S_FEE = selected_row['Fee']
         S_MAX = int(selected_row['Max Players']) if str(selected_row['Max Players']).isdigit() else 20
         
-        # Count only Pending/Paid
         current_count = 0
         if not reg_df.empty:
             reg_df['Session Date'] = reg_df['Session Date'].astype(str)
@@ -212,6 +211,7 @@ if mode == "⚽ Register & Lineup":
             
             with st.form("entry_form", clear_on_submit=False): 
                 player_name = st.text_input("Your Nickname")
+                player_phone = st.text_input("Phone (e.g. 0123456789)")
                 
                 if is_full:
                     submitted = st.form_submit_button("⏳ JOIN WAITLIST")
@@ -220,33 +220,35 @@ if mode == "⚽ Register & Lineup":
                     submitted = st.form_submit_button("✅ CONFIRM SLOT")
                     new_status = "Pending"
 
-                if submitted and player_name:
-                    # CHECK DUPLICATE
-                    if not reg_df.empty:
-                        current_session_regs = reg_df[reg_df['Session Date'] == str(S_DATE)]
-                        taken_names = current_session_regs['Player Name'].astype(str).str.lower().str.strip().tolist()
-                        
-                        if player_name.lower().strip() in taken_names:
-                            st.error(f"⚠️ Name '{player_name}' taken! Use a nickname.")
-                            st.stop()
-                    
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    row_data = [str(S_DATE), player_name, new_status, str(S_FEE), timestamp]
-                    sheet_regs.append_row(row_data)
-                    
-                    if new_status == "Waitlist":
-                        st.warning(f"You are on the WAITLIST.")
-                        msg = f"Hi Admin, I joined the WAITLIST for {S_NAME} on {S_DATE}. Name: {player_name}."
+                if submitted:
+                    if not player_name or not player_phone:
+                        st.error("⚠️ Please fill in both Name and Phone Number.")
                     else:
-                        st.balloons()
-                        st.success(f"Success! {player_name} secured a spot.")
-                        msg = f"Hi Admin, I registered for {S_NAME} on {S_DATE}. Name: {player_name}."
-                    
-                    wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
-                    st.link_button("📤 NOTIFY ADMIN (WHATSAPP)", wa_link)
-                    st.rerun() 
-                elif submitted:
-                    st.error("Name Required")
+                        if not reg_df.empty:
+                            current_session_regs = reg_df[reg_df['Session Date'] == str(S_DATE)]
+                            taken_names = current_session_regs['Player Name'].astype(str).str.lower().str.strip().tolist()
+                            
+                            if player_name.lower().strip() in taken_names:
+                                st.error(f"⚠️ Name '{player_name}' taken! Use a nickname.")
+                                st.stop()
+                        
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        # Added Phone to row data (adding ' to force string format in sheets)
+                        row_data = [str(S_DATE), player_name, "'" + str(player_phone), new_status, str(S_FEE), timestamp]
+                        sheet_regs.append_row(row_data)
+                        
+                        if new_status == "Waitlist":
+                            st.warning(f"You are on the WAITLIST.")
+                            msg = f"Hi Admin, I joined WAITLIST for {S_NAME} on {S_DATE}. Name: {player_name}."
+                        else:
+                            st.balloons()
+                            st.success(f"Success! {player_name} secured a spot.")
+                            msg = f"Hi Admin, I registered for {S_NAME} on {S_DATE}. Name: {player_name}."
+                        
+                        wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
+                        st.link_button("📤 NOTIFY ADMIN (WHATSAPP)", wa_link)
+                        st.rerun() 
 
     st.divider()
     st.subheader("CURRENT LINEUP")
@@ -259,7 +261,11 @@ if mode == "⚽ Register & Lineup":
             status_order = {'Paid': 1, 'Pending': 2, 'Waitlist': 3, 'Rejected': 4}
             display_df['Sort'] = display_df['Payment Status'].map(status_order)
             display_df = display_df.sort_values('Sort').drop(columns=['Sort'])
-            display_df = display_df[["Player Name", "Payment Status"]]
+            
+            # --- PRIVACY: ONLY SHOW NAME & STATUS (NO PHONE) ---
+            # We explicitly check columns to avoid errors if sheet is empty
+            if "Player Name" in display_df.columns and "Payment Status" in display_df.columns:
+                display_df = display_df[["Player Name", "Payment Status"]]
             
             def highlight_status(val):
                 if val == 'Paid': return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
@@ -321,12 +327,10 @@ elif mode == "🔒 Admin Panel":
             except Exception as e:
                 st.error(f"Error: {e}")
 
-        # TAB 2: PLAYERS (WITH FILTER & NOTE)
+        # TAB 2: PLAYERS
         with tab_players:
             st.markdown("### 🔍 MANAGE PLAYERS")
-            
-            # --- IMPORTANT NOTE ---
-            st.info("ℹ️ NOTE: If you delete a non-paying player, please manually change the status of the top Waitlist player to 'Pending'.")
+            st.info("ℹ️ Note: Promote top Waitlist player if a slot opens.")
             
             p_data = sheet_regs.get_all_records()
             p_df = pd.DataFrame(p_data)
@@ -334,17 +338,12 @@ elif mode == "🔒 Admin Panel":
             if p_df.empty:
                 st.info("No players yet.")
             else:
-                # --- FILTER DROPDOWN ---
                 p_df['Session Date'] = p_df['Session Date'].astype(str)
                 available_dates = p_df['Session Date'].unique().tolist()
                 
-                # Add "All" option if you want, but sticking to specific dates helps safety
                 selected_filter = st.selectbox("Filter by Game:", available_dates)
-                
-                # Filter Data
                 filtered_view = p_df[p_df['Session Date'] == selected_filter].copy()
 
-                # --- 1-HOUR CHECKER ON FILTERED DATA ---
                 filtered_view["Timestamp"] = pd.to_datetime(filtered_view["Timestamp"], errors='coerce')
                 now = datetime.now()
                 filtered_view["Hours_Ago"] = (now - filtered_view["Timestamp"]).dt.total_seconds() / 3600
@@ -353,8 +352,12 @@ elif mode == "🔒 Admin Panel":
                 if "Delete?" not in filtered_view.columns:
                     filtered_view.insert(0, "Delete?", False)
 
-                # Show Editor
                 display_df = filtered_view.drop(columns=["Hours_Ago"])
+
+                # Ensure Phone column is visible/editable
+                # If Phone column missing (old data), add it
+                if "Phone" not in display_df.columns:
+                    display_df["Phone"] = ""
 
                 edited_players = st.data_editor(
                     display_df, 
@@ -363,34 +366,22 @@ elif mode == "🔒 Admin Panel":
                         "Delete?": st.column_config.CheckboxColumn("Delete?", default=False),
                         "Overdue": st.column_config.CheckboxColumn("Overdue (>1h?)", disabled=True),
                         "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Waitlist", "Rejected"]),
+                        "Phone": st.column_config.TextColumn("Phone"),
                         "Timestamp": st.column_config.DatetimeColumn("Registered At", format="h:mm a")
                     },
                     use_container_width=True
                 )
                 
                 if st.button("💾 SAVE CHANGES (THIS GAME ONLY)"):
-                    # 1. Get the list of players to DELETE from the edited view
-                    rows_to_delete = edited_players[edited_players["Delete?"] == True]
-                    
-                    # 2. Get the list of players UPDATED from the edited view
                     rows_to_update = edited_players[edited_players["Delete?"] == False]
 
-                    # 3. We need to merge this back into the ORIGINAL BIG LIST (p_df)
-                    # Strategy: 
-                    # A. Keep all rows from OTHER dates exactly as they are.
-                    # B. Replace the rows from THIS date with the new 'rows_to_update'.
-                    
-                    # Step A: Get rows from other dates
                     other_dates_df = p_df[p_df['Session Date'] != selected_filter]
                     
-                    # Step B: Prepare new rows (Clean up helper columns)
                     rows_to_update = rows_to_update.drop(columns=["Delete?", "Overdue"])
                     rows_to_update["Timestamp"] = rows_to_update["Timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
                     
-                    # Step C: Combine
                     final_combined_df = pd.concat([other_dates_df, rows_to_update], ignore_index=True)
                     
-                    # Save
                     sheet_regs.clear()
                     sheet_regs.append_row(final_combined_df.columns.tolist())
                     sheet_regs.append_rows(final_combined_df.values.tolist())
