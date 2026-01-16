@@ -16,6 +16,7 @@ NEON_GREEN = "#CCFF00"
 DARK_BG = "#121212"
 CARD_BG = "#1E1E1E"
 TNG_BLUE = "#005EB8"
+WAITLIST_COLOR = "#00C4FF" # Light Blue for Waitlist
 
 # --- CUSTOM CSS ---
 st.markdown(f"""
@@ -61,15 +62,6 @@ st.markdown(f"""
         box-shadow: 0 0 15px {NEON_GREEN};
     }}
 
-    /* DISABLED BUTTON (SOLD OUT) */
-    div.stButton > button:disabled {{
-        background-color: #555 !important;
-        color: #888 !important;
-        border: 2px solid #555 !important;
-        cursor: not-allowed;
-        box-shadow: none;
-    }}
-
     /* TNG BUTTON STYLE */
     .tng-btn {{
         background-color: {TNG_BLUE};
@@ -84,10 +76,6 @@ st.markdown(f"""
         margin-bottom: 10px;
         border: 1px solid white;
         transition: all 0.2s;
-    }}
-    .tng-btn:hover {{
-        background-color: #004ca3;
-        transform: scale(1.02);
     }}
     
     /* GUIDE BOX STYLE */
@@ -126,25 +114,25 @@ with st.sidebar:
     mode = st.radio("Navigate", ["⚽ Register for Match", "📝 Player List", "🔒 Admin Panel"])
 
 # ==========================================
-# PAGE 1: REGISTRATION (WITH GUIDE)
+# PAGE 1: REGISTRATION (WITH WAITLIST)
 # ==========================================
 if mode == "⚽ Register for Match":
     st.subheader("SELECT A MATCH")
     
-    # --- 📝 NEW GUIDE SECTION ---
+    # --- GUIDE ---
     st.markdown(f"""
     <div class="guide-box">
         <h4 style="color:{NEON_GREEN}; margin:0;">📝 HOW TO REGISTER</h4>
         <p style="font-size:14px; margin-top:5px;">
         <b>1. Screenshot</b> the QR Code below.<br>
-        <b>2. Click</b> the Blue Button to open TNG (Scan from Gallery).<br>
+        <b>2. Click</b> the Blue Button to open TNG.<br>
         <b>3. Enter</b> your name & Confirm Slot.<br>
         <b>4. Send</b> Receipt via WhatsApp.
         </p>
     </div>
     """, unsafe_allow_html=True)
     
-    st.warning("⚠️ RULE: Payment must be made within 1 HOUR, or your slot will be deleted.")
+    st.warning("⚠️ RULE: Payment must be made within 1 HOUR.")
     
     try:
         # Load Data
@@ -161,7 +149,6 @@ if mode == "⚽ Register for Match":
         if "Status" not in sessions_df.columns:
              sessions_df["Status"] = "Open"
              
-        # Check for 'Max Players' column
         if "Max Players" not in sessions_df.columns:
             st.error("Admin: Add 'Max Players' column to Sessions sheet.")
             st.stop()
@@ -187,11 +174,16 @@ if mode == "⚽ Register for Match":
         S_MAX = int(selected_row['Max Players']) if str(selected_row['Max Players']).isdigit() else 20
         
         # --- COUNT LOGIC ---
+        # Only count 'Pending' and 'Paid'. Do not count 'Waitlist' or 'Rejected'
         current_count = 0
         if not reg_df.empty:
             reg_df['Session Date'] = reg_df['Session Date'].astype(str)
-            matching_regs = reg_df[reg_df['Session Date'] == str(S_DATE)]
-            current_count = len(matching_regs)
+            # Filter by date AND by valid status (ignore Waitlist/Rejected for the count)
+            active_players = reg_df[
+                (reg_df['Session Date'] == str(S_DATE)) & 
+                (reg_df['Payment Status'].isin(['Pending', 'Paid']))
+            ]
+            current_count = len(active_players)
             
         spots_left = S_MAX - current_count
         is_full = spots_left <= 0
@@ -208,24 +200,24 @@ if mode == "⚽ Register for Match":
         st.progress(progress)
         
         if is_full:
-            st.error("❌ FULLY BOOKED! NO SPOTS LEFT.")
+            st.info("ℹ️ FULLY BOOKED! Joining Waitlist...")
         else:
             st.success(f"🔥 {spots_left} SPOTS LEFT!")
 
         col1, col2 = st.columns([1, 1])
         with col1:
             st.markdown(f"#### FEE: RM {S_FEE}")
-            try:
-                st.image("pay.jpg", use_container_width=True)
-            except:
-                st.warning("Upload pay.jpg")
-
-            # --- TNG BUTTON INTEGRATION ---
-            st.markdown(f"""
-                <a href="tngdwallet://" class="tng-btn">
-                    🔵 Open Touch 'n Go App
-                </a>
-            """, unsafe_allow_html=True)
+            
+            # Show QR only if NOT full (Waitlist doesn't pay yet)
+            if not is_full:
+                try:
+                    st.image("pay.jpg", use_container_width=True)
+                except:
+                    st.warning("Upload pay.jpg")
+                st.markdown(f"""<a href="tngdwallet://" class="tng-btn">🔵 Open Touch 'n Go</a>""", unsafe_allow_html=True)
+            else:
+                st.write("🚫 **DO NOT PAY YET**")
+                st.caption("Waitlist players pay only when a slot opens.")
 
         with col2:
             st.markdown("#### MATCH DETAILS")
@@ -234,22 +226,31 @@ if mode == "⚽ Register for Match":
             with st.form("entry_form", clear_on_submit=True):
                 player_name = st.text_input("Your Nickname")
                 
-                # DISABLE BUTTON IF FULL
+                # --- DYNAMIC BUTTON ---
                 if is_full:
-                    submitted = st.form_submit_button("⛔ SOLD OUT", disabled=True)
+                    # WAITLIST MODE
+                    submitted = st.form_submit_button("⏳ JOIN WAITLIST")
+                    new_status = "Waitlist"
                 else:
+                    # NORMAL MODE
                     submitted = st.form_submit_button("✅ CONFIRM SLOT")
+                    new_status = "Pending"
 
                 if submitted and player_name:
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    row_data = [str(S_DATE), player_name, "Pending", str(S_FEE), timestamp]
+                    row_data = [str(S_DATE), player_name, new_status, str(S_FEE), timestamp]
                     sheet_regs.append_row(row_data)
-                    st.balloons()
-                    st.success(f"Success! {player_name} secured a spot.")
                     
-                    msg = f"Hi Admin, I registered for {S_NAME} on {S_DATE}. Name: {player_name}."
+                    if new_status == "Waitlist":
+                        st.warning(f"You are on the WAITLIST, {player_name}.")
+                        msg = f"Hi Admin, I joined the WAITLIST for {S_NAME} on {S_DATE}. Name: {player_name}."
+                    else:
+                        st.balloons()
+                        st.success(f"Success! {player_name} secured a spot.")
+                        msg = f"Hi Admin, I registered for {S_NAME} on {S_DATE}. Name: {player_name}."
+                    
                     wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
-                    st.link_button("📤 SEND RECEIPT (WHATSAPP)", wa_link)
+                    st.link_button("📤 NOTIFY ADMIN (WHATSAPP)", wa_link)
                     
                     st.rerun() 
                 elif submitted:
@@ -276,6 +277,13 @@ elif mode == "📝 Player List":
         if not reg_df.empty and selected_date_view:
             reg_df['Session Date'] = reg_df['Session Date'].astype(str)
             display_df = reg_df[reg_df['Session Date'] == str(selected_date_view)]
+            
+            # Sort: Paid/Pending first, then Waitlist
+            # We create a helper column for sorting
+            status_order = {'Paid': 1, 'Pending': 2, 'Waitlist': 3, 'Rejected': 4}
+            display_df['Sort'] = display_df['Payment Status'].map(status_order)
+            display_df = display_df.sort_values('Sort').drop(columns=['Sort'])
+            
             display_df = display_df[["Player Name", "Payment Status"]]
             
             st.caption(f"Total Players: {len(display_df)}")
@@ -283,6 +291,7 @@ elif mode == "📝 Player List":
             def highlight_status(val):
                 if val == 'Paid': return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
                 elif val == 'Pending': return 'background-color: #444; color: orange; font-weight: bold;'
+                elif val == 'Waitlist': return f'background-color: {WAITLIST_COLOR}; color: black; font-weight: bold;'
                 return ''
 
             if not display_df.empty:
@@ -351,20 +360,17 @@ elif mode == "🔒 Admin Panel":
             if p_df.empty:
                 st.info("No players yet.")
             else:
-                # 1. Calculate Overdue
                 p_df["Timestamp"] = pd.to_datetime(p_df["Timestamp"], errors='coerce')
                 now = datetime.now()
                 p_df["Hours_Ago"] = (now - p_df["Timestamp"]).dt.total_seconds() / 3600
                 p_df["Overdue"] = (p_df["Payment Status"] == "Pending") & (p_df["Hours_Ago"] > 1.0)
                 
-                # 2. Alert
                 overdue_count = p_df["Overdue"].sum()
                 if overdue_count > 0:
                     st.error(f"⚠️ {overdue_count} players exceeded the 1-hour limit!")
                 else:
                     st.success("✅ Everyone is within the time limit.")
 
-                # 3. Editor
                 if "Delete?" not in p_df.columns:
                     p_df.insert(0, "Delete?", False)
                 
@@ -376,7 +382,8 @@ elif mode == "🔒 Admin Panel":
                     column_config={
                         "Delete?": st.column_config.CheckboxColumn("Delete?", default=False),
                         "Overdue": st.column_config.CheckboxColumn("Overdue (>1h?)", disabled=True),
-                        "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Rejected"]),
+                        # ADDED 'Waitlist' TO OPTIONS HERE
+                        "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Waitlist", "Rejected"]),
                         "Timestamp": st.column_config.DatetimeColumn("Registered At", format="h:mm a")
                     },
                     use_container_width=True
