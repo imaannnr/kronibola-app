@@ -78,7 +78,6 @@ st.markdown(f"""
         transition: all 0.2s;
     }}
     
-    /* GUIDE BOX STYLE */
     .guide-box {{
         background-color: #333;
         padding: 15px;
@@ -119,14 +118,13 @@ with st.sidebar:
 if mode == "⚽ Register & Lineup":
     st.subheader("SELECT A MATCH")
     
-    # --- GUIDE ---
     st.markdown(f"""
     <div class="guide-box">
         <h4 style="color:{NEON_GREEN}; margin:0;">📝 HOW TO REGISTER</h4>
         <p style="font-size:14px; margin-top:5px;">
         <b>1. Screenshot</b> the QR Code below.<br>
-        <b>2. Click</b> the Blue Button to open TNG.<br>
-        <b>3. Enter</b> your name & Confirm Slot.<br>
+        <b>2. Click</b> Blue Button (TNG).<br>
+        <b>3. Register</b> Name.<br>
         <b>4. Send</b> Receipt via WhatsApp.
         </p>
     </div>
@@ -144,24 +142,18 @@ if mode == "⚽ Register & Lineup":
             st.warning("No sessions found.")
             st.stop()
             
-        if "Status" not in sessions_df.columns:
-             sessions_df["Status"] = "Open"
-             
-        if "Max Players" not in sessions_df.columns:
-            st.error("Admin: Add 'Max Players' column to Sessions sheet.")
-            st.stop()
+        if "Status" not in sessions_df.columns: sessions_df["Status"] = "Open"
+        if "Max Players" not in sessions_df.columns: st.error("Add 'Max Players' column."); st.stop()
 
         open_sessions = sessions_df[sessions_df["Status"] == "Open"]
         
         if open_sessions.empty:
-            st.info("No open games right now.")
+            st.info("No open games.")
             st.stop()
             
         session_options = open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1).tolist()
-        
         selected_option = st.selectbox("Choose Session:", session_options)
         
-        # Get details
         selected_row = open_sessions[open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1) == selected_option].iloc[0]
         
         S_NAME = selected_row['Session Name']
@@ -175,6 +167,7 @@ if mode == "⚽ Register & Lineup":
         current_count = 0
         if not reg_df.empty:
             reg_df['Session Date'] = reg_df['Session Date'].astype(str)
+            # Count only Pending/Paid (Not waitlist/rejected)
             active_players = reg_df[
                 (reg_df['Session Date'] == str(S_DATE)) & 
                 (reg_df['Payment Status'].isin(['Pending', 'Paid']))
@@ -185,14 +178,13 @@ if mode == "⚽ Register & Lineup":
         is_full = spots_left <= 0
 
     except Exception as e:
-        st.error(f"⚠️ Error loading data: {e}")
+        st.error(f"⚠️ Error: {e}")
         st.stop()
 
     st.write("")
     
     # --- FORM SECTION ---
     with st.container():
-        # Progress Bar
         st.caption(f"SPOTS FILLED: {current_count} / {S_MAX}")
         progress = min(current_count / S_MAX, 1.0)
         st.progress(progress)
@@ -206,10 +198,8 @@ if mode == "⚽ Register & Lineup":
         with col1:
             st.markdown(f"#### FEE: RM {S_FEE}")
             if not is_full:
-                try:
-                    st.image("pay.jpg", use_container_width=True)
-                except:
-                    st.warning("Upload pay.jpg")
+                try: st.image("pay.jpg", use_container_width=True)
+                except: st.warning("Upload pay.jpg")
                 st.markdown(f"""<a href="tngdwallet://" class="tng-btn">🔵 Open Touch 'n Go</a>""", unsafe_allow_html=True)
             else:
                 st.write("🚫 **DO NOT PAY YET**")
@@ -219,7 +209,7 @@ if mode == "⚽ Register & Lineup":
             st.markdown("#### MATCH DETAILS")
             st.info(f"📍 {S_LOC}\n\n⏰ {S_TIME}\n\n📅 {S_DATE}")
             
-            with st.form("entry_form", clear_on_submit=True):
+            with st.form("entry_form", clear_on_submit=False): # Changed to False to prevent auto-clear before logic runs
                 player_name = st.text_input("Your Nickname")
                 
                 if is_full:
@@ -230,6 +220,18 @@ if mode == "⚽ Register & Lineup":
                     new_status = "Pending"
 
                 if submitted and player_name:
+                    # --- DUPLICATE NAME CHECK ---
+                    if not reg_df.empty:
+                        # Filter for THIS session only
+                        current_session_regs = reg_df[reg_df['Session Date'] == str(S_DATE)]
+                        # Get taken names (Lowercase and stripped)
+                        taken_names = current_session_regs['Player Name'].astype(str).str.lower().str.strip().tolist()
+                        
+                        if player_name.lower().strip() in taken_names:
+                            st.error(f"⚠️ Name '{player_name}' is already taken for this game! Please use a different nickname (e.g. {player_name} Jr).")
+                            st.stop() # Halts execution here so we don't save
+                    
+                    # If check passes, save data
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     row_data = [str(S_DATE), player_name, new_status, str(S_FEE), timestamp]
                     sheet_regs.append_row(row_data)
@@ -245,26 +247,24 @@ if mode == "⚽ Register & Lineup":
                     wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
                     st.link_button("📤 NOTIFY ADMIN (WHATSAPP)", wa_link)
                     
+                    # Reload page to update list
                     st.rerun() 
                 elif submitted:
                     st.error("Name Required")
 
-    # --- LIST SECTION (ON THE SAME PAGE) ---
+    # --- LIST SECTION ---
     st.divider()
     st.subheader("CURRENT LINEUP")
     
     if not reg_df.empty:
-        # Filter for the SELECTED session only
         reg_df['Session Date'] = reg_df['Session Date'].astype(str)
         display_df = reg_df[reg_df['Session Date'] == str(S_DATE)]
         
         if not display_df.empty:
-            # Sort: Paid -> Pending -> Waitlist
             status_order = {'Paid': 1, 'Pending': 2, 'Waitlist': 3, 'Rejected': 4}
             display_df['Sort'] = display_df['Payment Status'].map(status_order)
             display_df = display_df.sort_values('Sort').drop(columns=['Sort'])
             
-            # Show Table
             display_df = display_df[["Player Name", "Payment Status"]]
             
             def highlight_status(val):
