@@ -24,14 +24,11 @@ st.set_page_config(page_title="KroniBola", page_icon="⚽", layout="centered")
 NEON_GREEN = "#CCFF00"
 TNG_BLUE = "#005EB8"
 WAITLIST_COLOR = "#00C4FF"
-
-# 🖼️ UPDATED BACKGROUND IMAGE (The one you requested)
 BG_IMAGE_URL = "https://images.unsplash.com/photo-1637775297511-26987546a94b?q=80&w=2560&auto=format&fit=crop"
 
-# --- 🖌️ CUSTOM CSS (GLASS UI + BACKGROUND) ---
+# --- 🖌️ CUSTOM CSS ---
 st.markdown(f"""
     <style>
-    /* 1. MAIN BACKGROUND IMAGE */
     [data-testid="stAppViewContainer"] {{
         background-image: url("{BG_IMAGE_URL}");
         background-size: cover;
@@ -40,16 +37,14 @@ st.markdown(f"""
         background-attachment: fixed;
     }}
     
-    /* 2. DARK OVERLAY (To make text readable on the b&w photo) */
     [data-testid="stAppViewContainer"]::before {{
         content: "";
         position: absolute;
         top: 0; left: 0; width: 100%; height: 100%;
-        background-color: rgba(0, 0, 0, 0.75); /* Darker tint for contrast */
+        background-color: rgba(0, 0, 0, 0.75);
         z-index: -1;
     }}
 
-    /* 3. GLASSMOPHISM CARDS (Frosted Glass Effect) */
     .stForm, [data-testid="stDataFrame"], .guide-box, .css-1r6slb0, .stTabs {{
         background-color: rgba(20, 20, 20, 0.6) !important;
         backdrop-filter: blur(12px);
@@ -60,7 +55,6 @@ st.markdown(f"""
         padding: 20px;
     }}
 
-    /* 4. TYPOGRAPHY */
     h1, h2, h3 {{
         color: {NEON_GREEN} !important;
         font-family: 'Arial Black', sans-serif;
@@ -70,14 +64,12 @@ st.markdown(f"""
     
     p, label, .stMarkdown, .stCaption, .stText, h4 {{ color: #FFFFFF !important; }}
     
-    /* 5. INPUT FIELDS */
     .stTextInput input, .stDateInput input, .stTimeInput input, .stSelectbox div[data-baseweb="select"] {{
         background-color: rgba(0, 0, 0, 0.5) !important;
         color: white !important;
         border: 1px solid #555 !important;
     }}
 
-    /* 6. NEON BUTTONS */
     div.stButton > button {{
         background-color: {NEON_GREEN} !important;
         color: #000000 !important;
@@ -96,7 +88,6 @@ st.markdown(f"""
         transform: scale(1.02);
     }}
     
-    /* Disabled Button */
     div.stButton > button:disabled {{
         background-color: rgba(255,255,255,0.1) !important;
         color: #aaa !important;
@@ -104,7 +95,6 @@ st.markdown(f"""
         box-shadow: none;
     }}
 
-    /* 7. TNG BUTTON */
     .tng-btn {{
         background-color: {TNG_BLUE};
         color: white !important;
@@ -120,13 +110,11 @@ st.markdown(f"""
         backdrop-filter: blur(5px);
     }}
 
-    /* 8. GUIDE BOX SPECIFIC */
     .guide-box {{
         border-left: 5px solid {NEON_GREEN};
         margin-bottom: 20px;
     }}
     
-    /* Sidebar Transparent */
     [data-testid="stSidebar"] {{
         background-color: rgba(10, 10, 10, 0.9);
         border-right: 1px solid #333;
@@ -149,18 +137,14 @@ except Exception as e:
 
 # --- 🖼️ LOGO & HEADER ---
 col_logo, col_title = st.columns([1, 3])
-
 with col_logo:
     try:
-        # ⚠️ MAKE SURE YOU UPLOAD 'logo.png' TO GITHUB
         st.image("logo.png", width=110) 
     except:
-        st.write("⚽") # Fallback emoji if logo missing
-
+        st.write("⚽")
 with col_title:
     st.title("KRONI BOLA")
     st.caption("EST. 2026")
-
 st.write("___")
 
 # --- SIDEBAR ---
@@ -193,18 +177,13 @@ if mode == "⚽ Register & Lineup":
         reg_data = sheet_regs.get_all_records()
         reg_df = pd.DataFrame(reg_data)
 
-        if sessions_df.empty:
-            st.warning("No sessions found.")
-            st.stop()
-            
+        if sessions_df.empty: st.warning("No sessions found."); st.stop()
         if "Status" not in sessions_df.columns: sessions_df["Status"] = "Open"
         if "Max Players" not in sessions_df.columns: st.error("Add 'Max Players' column."); st.stop()
 
         open_sessions = sessions_df[sessions_df["Status"] == "Open"]
         
-        if open_sessions.empty:
-            st.info("No open games.")
-            st.stop()
+        if open_sessions.empty: st.info("No open games."); st.stop()
             
         session_options = open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1).tolist()
         selected_option = st.selectbox("Choose Session:", session_options)
@@ -236,7 +215,6 @@ if mode == "⚽ Register & Lineup":
 
     st.write("")
     
-    # --- GLASS CARD FORM ---
     with st.container():
         st.caption(f"SPOTS FILLED: {current_count} / {S_MAX}")
         progress = min(current_count / S_MAX, 1.0)
@@ -279,20 +257,13 @@ if mode == "⚽ Register & Lineup":
                         st.stop()
                     
                     clean_phone = player_phone.replace("-", "").replace(" ", "")
-                    if not clean_phone.isdigit():
-                        st.error("⚠️ Invalid Phone: Digits only please.")
-                        st.stop()
-                    if len(clean_phone) < 10 or len(clean_phone) > 13:
-                        st.error("⚠️ Invalid Phone: Length incorrect.")
-                        st.stop()
+                    if not clean_phone.isdigit(): st.error("⚠️ Invalid Phone"); st.stop()
+                    if len(clean_phone) < 10 or len(clean_phone) > 13: st.error("⚠️ Invalid Phone"); st.stop()
 
                     if not reg_df.empty:
                         current_session_regs = reg_df[reg_df['Session Date'] == str(S_DATE)]
                         taken_names = current_session_regs['Player Name'].astype(str).str.lower().str.strip().tolist()
-                        
-                        if player_name.lower().strip() in taken_names:
-                            st.error(f"⚠️ Name '{player_name}' taken! Please add initials.")
-                            st.stop()
+                        if player_name.lower().strip() in taken_names: st.error(f"⚠️ Name '{player_name}' taken!"); st.stop()
                     
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     row_data = [str(S_DATE), player_name, "'" + str(clean_phone), new_status, str(S_FEE), timestamp]
@@ -350,6 +321,7 @@ elif mode == "🔒 Admin Panel":
         
         tab_schedule, tab_players = st.tabs(["📅 MANAGE SCHEDULE", "👥 MANAGE PLAYERS"])
         
+        # TAB 1: SCHEDULE
         with tab_schedule:
             st.write("Edit upcoming games here.")
             try:
@@ -384,8 +356,12 @@ elif mode == "🔒 Admin Panel":
             except Exception as e:
                 st.error(f"Error: {e}")
 
+        # TAB 2: PLAYERS
         with tab_players:
             st.markdown("### 🔍 MANAGE PLAYERS")
+            
+            # --- ⚠️ RESTORED ADMIN NOTE ---
+            st.info("ℹ️ NOTE: If you move a player from 'Waitlist' to 'Pending', click '📲 Send WhatsApp' to notify them to pay.")
             
             p_data = sheet_regs.get_all_records()
             p_df = pd.DataFrame(p_data)
@@ -406,10 +382,30 @@ elif mode == "🔒 Admin Panel":
                 
                 if "Delete?" not in filtered_view.columns:
                     filtered_view.insert(0, "Delete?", False)
+                
+                # --- GENERATE NOTIFY LINKS ---
+                # We construct a WhatsApp link for every player: "Hi [Name], slot open for [Date]! Pay RM[Fee]."
+                # 1. Clean phone (remove ')
+                # 2. Build URL
+                
+                def create_notify_link(row):
+                    try:
+                        phone = str(row['Phone']).replace("'", "").strip()
+                        name = row['Player Name']
+                        date = row['Session Date']
+                        fee = row['Amount']
+                        msg = f"Hi {name}, good news! A slot opened up for the game on {date}. Please pay RM{fee} to confirm your spot."
+                        if phone:
+                            return f"https://wa.me/6{phone}?text={msg}" # Assuming Malaysia '6' prefix if missing, usually users put 012...
+                        return None
+                    except:
+                        return None
+
+                filtered_view['Notify'] = filtered_view.apply(create_notify_link, axis=1)
 
                 display_df = filtered_view.drop(columns=["Hours_Ago"])
-                if "Phone" not in display_df.columns: display_df["Phone"] = ""
 
+                # EDITABLE TABLE WITH NOTIFY BUTTON
                 edited_players = st.data_editor(
                     display_df, 
                     num_rows="dynamic",
@@ -418,6 +414,7 @@ elif mode == "🔒 Admin Panel":
                         "Overdue": st.column_config.CheckboxColumn("Overdue (>1h?)", disabled=True),
                         "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Waitlist", "Rejected"]),
                         "Phone": st.column_config.TextColumn("Phone"),
+                        "Notify": st.column_config.LinkColumn("Notify Waitlist", display_text="📲 Send WhatsApp"), # <--- NEW BUTTON
                         "Timestamp": st.column_config.DatetimeColumn("Registered At", format="h:mm a")
                     },
                     use_container_width=True
@@ -427,7 +424,10 @@ elif mode == "🔒 Admin Panel":
                     rows_to_update = edited_players[edited_players["Delete?"] == False]
                     other_dates_df = p_df[p_df['Session Date'] != selected_filter]
                     
-                    rows_to_update = rows_to_update.drop(columns=["Delete?", "Overdue"])
+                    # Clean up helper columns before saving to Google Sheets
+                    # 'Notify' column exists in dataframe but not in Google Sheet, so we drop it
+                    rows_to_update = rows_to_update.drop(columns=["Delete?", "Overdue", "Notify"])
+                    
                     rows_to_update["Timestamp"] = rows_to_update["Timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
                     
                     final_combined_df = pd.concat([other_dates_df, rows_to_update], ignore_index=True)
