@@ -89,6 +89,15 @@ st.markdown(f"""
         background-color: #004ca3;
         transform: scale(1.02);
     }}
+    
+    /* GUIDE BOX STYLE */
+    .guide-box {{
+        background-color: #333;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid {NEON_GREEN};
+        margin-bottom: 20px;
+    }}
 
     [data-testid="stDataFrame"] {{ background-color: {CARD_BG}; }}
     </style>
@@ -117,10 +126,24 @@ with st.sidebar:
     mode = st.radio("Navigate", ["⚽ Register for Match", "📝 Player List", "🔒 Admin Panel"])
 
 # ==========================================
-# PAGE 1: REGISTRATION
+# PAGE 1: REGISTRATION (WITH GUIDE)
 # ==========================================
 if mode == "⚽ Register for Match":
     st.subheader("SELECT A MATCH")
+    
+    # --- 📝 NEW GUIDE SECTION ---
+    st.markdown(f"""
+    <div class="guide-box">
+        <h4 style="color:{NEON_GREEN}; margin:0;">📝 HOW TO REGISTER</h4>
+        <p style="font-size:14px; margin-top:5px;">
+        <b>1. Screenshot</b> the QR Code below.<br>
+        <b>2. Click</b> the Blue Button to open TNG (Scan from Gallery).<br>
+        <b>3. Enter</b> your name & Confirm Slot.<br>
+        <b>4. Send</b> Receipt via WhatsApp.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.warning("⚠️ RULE: Payment must be made within 1 HOUR, or your slot will be deleted.")
     
     try:
