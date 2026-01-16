@@ -117,10 +117,11 @@ with st.sidebar:
     mode = st.radio("Navigate", ["⚽ Register for Match", "📝 Player List", "🔒 Admin Panel"])
 
 # ==========================================
-# PAGE 1: REGISTRATION (MAX LIMIT + TNG)
+# PAGE 1: REGISTRATION
 # ==========================================
 if mode == "⚽ Register for Match":
     st.subheader("SELECT A MATCH")
+    st.warning("⚠️ RULE: Payment must be made within 1 HOUR, or your slot will be deleted.")
     
     try:
         # Load Data
@@ -282,6 +283,7 @@ elif mode == "🔒 Admin Panel":
         
         tab_schedule, tab_players = st.tabs(["📅 MANAGE SCHEDULE", "👥 MANAGE PLAYERS"])
         
+        # TAB 1: SCHEDULE
         with tab_schedule:
             st.write("Edit upcoming games here.")
             try:
@@ -316,26 +318,54 @@ elif mode == "🔒 Admin Panel":
             except Exception as e:
                 st.error(f"Error: {e}")
 
+        # TAB 2: PLAYERS (WITH 1-HOUR CHECK)
         with tab_players:
+            st.markdown("### 🕒 PAYMENT CHECKER")
+            
             p_data = sheet_regs.get_all_records()
             p_df = pd.DataFrame(p_data)
-            if "Delete?" not in p_df.columns: p_df.insert(0, "Delete?", False)
             
-            edited_players = st.data_editor(
-                p_df, 
-                num_rows="dynamic",
-                column_config={
-                    "Delete?": st.column_config.CheckboxColumn("Delete?", default=False),
-                    "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Rejected"])
-                },
-                use_container_width=True
-            )
-            
-            if st.button("💾 SAVE PLAYER STATUS"):
-                rows_to_keep = edited_players[edited_players["Delete?"] == False]
-                final_data = rows_to_keep.drop(columns=["Delete?"])
-                sheet_regs.clear()
-                sheet_regs.append_row(final_data.columns.tolist())
-                sheet_regs.append_rows(final_data.values.tolist())
-                st.toast("Players Updated!", icon="✅")
-                st.rerun()
+            if p_df.empty:
+                st.info("No players yet.")
+            else:
+                # 1. Calculate Overdue
+                p_df["Timestamp"] = pd.to_datetime(p_df["Timestamp"], errors='coerce')
+                now = datetime.now()
+                p_df["Hours_Ago"] = (now - p_df["Timestamp"]).dt.total_seconds() / 3600
+                p_df["Overdue"] = (p_df["Payment Status"] == "Pending") & (p_df["Hours_Ago"] > 1.0)
+                
+                # 2. Alert
+                overdue_count = p_df["Overdue"].sum()
+                if overdue_count > 0:
+                    st.error(f"⚠️ {overdue_count} players exceeded the 1-hour limit!")
+                else:
+                    st.success("✅ Everyone is within the time limit.")
+
+                # 3. Editor
+                if "Delete?" not in p_df.columns:
+                    p_df.insert(0, "Delete?", False)
+                
+                display_df = p_df.drop(columns=["Hours_Ago"])
+
+                edited_players = st.data_editor(
+                    display_df, 
+                    num_rows="dynamic",
+                    column_config={
+                        "Delete?": st.column_config.CheckboxColumn("Delete?", default=False),
+                        "Overdue": st.column_config.CheckboxColumn("Overdue (>1h?)", disabled=True),
+                        "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Rejected"]),
+                        "Timestamp": st.column_config.DatetimeColumn("Registered At", format="h:mm a")
+                    },
+                    use_container_width=True
+                )
+                
+                if st.button("💾 SAVE PLAYER STATUS"):
+                    rows_to_keep = edited_players[edited_players["Delete?"] == False]
+                    final_data = rows_to_keep.drop(columns=["Delete?", "Overdue"])
+                    final_data["Timestamp"] = final_data["Timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    sheet_regs.clear()
+                    sheet_regs.append_row(final_data.columns.tolist())
+                    sheet_regs.append_rows(final_data.values.tolist())
+                    st.toast("Players Updated!", icon="✅")
+                    st.rerun()
