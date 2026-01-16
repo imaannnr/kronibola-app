@@ -16,7 +16,7 @@ NEON_GREEN = "#CCFF00"
 DARK_BG = "#121212"
 CARD_BG = "#1E1E1E"
 TNG_BLUE = "#005EB8"
-WAITLIST_COLOR = "#00C4FF" # Light Blue for Waitlist
+WAITLIST_COLOR = "#00C4FF"
 
 # --- CUSTOM CSS ---
 st.markdown(f"""
@@ -111,12 +111,12 @@ st.write("___")
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("MENU")
-    mode = st.radio("Navigate", ["⚽ Register for Match", "📝 Player List", "🔒 Admin Panel"])
+    mode = st.radio("Navigate", ["⚽ Register & Lineup", "🔒 Admin Panel"])
 
 # ==========================================
-# PAGE 1: REGISTRATION (WITH WAITLIST)
+# PAGE 1: REGISTRATION + LIST
 # ==========================================
-if mode == "⚽ Register for Match":
+if mode == "⚽ Register & Lineup":
     st.subheader("SELECT A MATCH")
     
     # --- GUIDE ---
@@ -131,8 +131,6 @@ if mode == "⚽ Register for Match":
         </p>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.warning("⚠️ RULE: Payment must be made within 1 HOUR.")
     
     try:
         # Load Data
@@ -174,11 +172,9 @@ if mode == "⚽ Register for Match":
         S_MAX = int(selected_row['Max Players']) if str(selected_row['Max Players']).isdigit() else 20
         
         # --- COUNT LOGIC ---
-        # Only count 'Pending' and 'Paid'. Do not count 'Waitlist' or 'Rejected'
         current_count = 0
         if not reg_df.empty:
             reg_df['Session Date'] = reg_df['Session Date'].astype(str)
-            # Filter by date AND by valid status (ignore Waitlist/Rejected for the count)
             active_players = reg_df[
                 (reg_df['Session Date'] == str(S_DATE)) & 
                 (reg_df['Payment Status'].isin(['Pending', 'Paid']))
@@ -193,8 +189,10 @@ if mode == "⚽ Register for Match":
         st.stop()
 
     st.write("")
+    
+    # --- FORM SECTION ---
     with st.container():
-        # --- PROGRESS BAR ---
+        # Progress Bar
         st.caption(f"SPOTS FILLED: {current_count} / {S_MAX}")
         progress = min(current_count / S_MAX, 1.0)
         st.progress(progress)
@@ -207,8 +205,6 @@ if mode == "⚽ Register for Match":
         col1, col2 = st.columns([1, 1])
         with col1:
             st.markdown(f"#### FEE: RM {S_FEE}")
-            
-            # Show QR only if NOT full (Waitlist doesn't pay yet)
             if not is_full:
                 try:
                     st.image("pay.jpg", use_container_width=True)
@@ -226,13 +222,10 @@ if mode == "⚽ Register for Match":
             with st.form("entry_form", clear_on_submit=True):
                 player_name = st.text_input("Your Nickname")
                 
-                # --- DYNAMIC BUTTON ---
                 if is_full:
-                    # WAITLIST MODE
                     submitted = st.form_submit_button("⏳ JOIN WAITLIST")
                     new_status = "Waitlist"
                 else:
-                    # NORMAL MODE
                     submitted = st.form_submit_button("✅ CONFIRM SLOT")
                     new_status = "Pending"
 
@@ -256,37 +249,23 @@ if mode == "⚽ Register for Match":
                 elif submitted:
                     st.error("Name Required")
 
-# ==========================================
-# PAGE 2: PLAYER LIST
-# ==========================================
-elif mode == "📝 Player List":
-    st.subheader("TEAM SHEET")
-    try:
-        reg_data = sheet_regs.get_all_records()
-        reg_df = pd.DataFrame(reg_data)
+    # --- LIST SECTION (ON THE SAME PAGE) ---
+    st.divider()
+    st.subheader("CURRENT LINEUP")
+    
+    if not reg_df.empty:
+        # Filter for the SELECTED session only
+        reg_df['Session Date'] = reg_df['Session Date'].astype(str)
+        display_df = reg_df[reg_df['Session Date'] == str(S_DATE)]
         
-        sessions_data = sheet_sessions.get_all_records()
-        sessions_df = pd.DataFrame(sessions_data)
-        
-        if not sessions_df.empty and "Date" in sessions_df.columns:
-            available_dates = sessions_df['Date'].unique().tolist()
-            selected_date_view = st.selectbox("View Players For:", available_dates)
-        else:
-            selected_date_view = None
-
-        if not reg_df.empty and selected_date_view:
-            reg_df['Session Date'] = reg_df['Session Date'].astype(str)
-            display_df = reg_df[reg_df['Session Date'] == str(selected_date_view)]
-            
-            # Sort: Paid/Pending first, then Waitlist
-            # We create a helper column for sorting
+        if not display_df.empty:
+            # Sort: Paid -> Pending -> Waitlist
             status_order = {'Paid': 1, 'Pending': 2, 'Waitlist': 3, 'Rejected': 4}
             display_df['Sort'] = display_df['Payment Status'].map(status_order)
             display_df = display_df.sort_values('Sort').drop(columns=['Sort'])
             
+            # Show Table
             display_df = display_df[["Player Name", "Payment Status"]]
-            
-            st.caption(f"Total Players: {len(display_df)}")
             
             def highlight_status(val):
                 if val == 'Paid': return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
@@ -294,17 +273,15 @@ elif mode == "📝 Player List":
                 elif val == 'Waitlist': return f'background-color: {WAITLIST_COLOR}; color: black; font-weight: bold;'
                 return ''
 
-            if not display_df.empty:
-                st.dataframe(display_df.style.applymap(highlight_status, subset=['Payment Status']), use_container_width=True)
-            else:
-                st.info(f"No players found for {selected_date_view}.")
+            st.dataframe(display_df.style.applymap(highlight_status, subset=['Payment Status']), use_container_width=True)
         else:
-            st.info("No data available.")
-    except Exception as e:
-        st.write(f"Loading Error: {e}")
+            st.info("Pitch is empty... Be the first to join!")
+    else:
+        st.info("No players yet.")
+
 
 # ==========================================
-# PAGE 3: ADMIN PANEL
+# PAGE 2: ADMIN PANEL
 # ==========================================
 elif mode == "🔒 Admin Panel":
     st.subheader("ADMIN ACCESS")
@@ -350,7 +327,7 @@ elif mode == "🔒 Admin Panel":
             except Exception as e:
                 st.error(f"Error: {e}")
 
-        # TAB 2: PLAYERS (WITH 1-HOUR CHECK)
+        # TAB 2: PLAYERS
         with tab_players:
             st.markdown("### 🕒 PAYMENT CHECKER")
             
@@ -382,7 +359,6 @@ elif mode == "🔒 Admin Panel":
                     column_config={
                         "Delete?": st.column_config.CheckboxColumn("Delete?", default=False),
                         "Overdue": st.column_config.CheckboxColumn("Overdue (>1h?)", disabled=True),
-                        # ADDED 'Waitlist' TO OPTIONS HERE
                         "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Waitlist", "Rejected"]),
                         "Timestamp": st.column_config.DatetimeColumn("Registered At", format="h:mm a")
                     },
