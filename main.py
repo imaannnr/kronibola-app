@@ -7,13 +7,20 @@ from datetime import datetime
 # --- PAGE SETUP ---
 st.set_page_config(page_title="KroniBola", page_icon="⚽", layout="centered")
 
-# --- 🔒 SECURITY SETUP ---
-# Fetch password from Streamlit Secrets
+# --- 🔒 SECURITY SETUP (SAFE MODE) ---
 try:
-    ADMIN_PASSWORD = st.secrets["admin_password"]
+    # Try to find the specific key
+    if "admin_password" in st.secrets:
+        ADMIN_PASSWORD = st.secrets["admin_password"]
+    else:
+        # Fallback if key is missing/misspelled
+        st.error("🚨 Error: Key 'admin_password' not found.")
+        st.info(f"Keys found in secrets: {list(st.secrets.keys())}") # This tells you what you actually typed!
+        st.stop()
+        
     ADMIN_WHATSAPP = "60126183827" 
 except Exception as e:
-    st.error("🚨 Security Error: Admin password not found in Secrets.")
+    st.error(f"🚨 Security Error: {e}")
     st.stop()
 
 # --- THEME COLORS ---
