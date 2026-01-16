@@ -15,7 +15,7 @@ st.set_page_config(page_title="KroniBola", page_icon="⚽", layout="centered")
 NEON_GREEN = "#CCFF00"
 DARK_BG = "#121212"
 CARD_BG = "#1E1E1E"
-TNG_BLUE = "#005EB8" # TNG Corporate Color
+TNG_BLUE = "#005EB8"
 
 # --- CUSTOM CSS ---
 st.markdown(f"""
@@ -30,30 +30,65 @@ st.markdown(f"""
         padding: 20px;
     }}
     
-    h1, h2, h3 {{ color: {NEON_GREEN} !important; font-family: 'Arial Black', sans-serif; text-transform: uppercase; }}
-    p, label, .stMarkdown, .stCaption {{ color: #E0E0E0 !important; }}
+    h1, h2, h3 {{
+        color: {NEON_GREEN} !important;
+        font-family: 'Arial Black', sans-serif;
+        text-transform: uppercase;
+    }}
     
-    .stTextInput input, .stDateInput input {{
-        background-color: #2D2D2D !important; color: white !important; border: 1px solid #555 !important;
+    p, label, .stMarkdown, .stCaption, .stText {{ color: #E0E0E0 !important; }}
+    
+    .stTextInput input, .stDateInput input, .stTimeInput input, .stSelectbox div[data-baseweb="select"] {{
+        background-color: #2D2D2D !important;
+        color: white !important;
+        border: 1px solid #555 !important;
     }}
 
     /* MAIN ACTION BUTTON */
     div.stButton > button {{
-        background-color: {NEON_GREEN} !important; color: black !important;
-        font-weight: 900 !important; text-transform: uppercase; border: none;
-        padding: 15px 0px; width: 100%; transition: all 0.3s ease;
+        background-color: {NEON_GREEN} !important;
+        color: #000000 !important;
+        font-size: 18px !important;
+        font-weight: 900 !important;
+        text-transform: uppercase;
+        border: 2px solid {NEON_GREEN} !important;
+        width: 100%;
+        transition: all 0.3s ease;
     }}
     div.stButton > button:hover {{
-        box-shadow: 0 0 15px {NEON_GREEN}; transform: scale(1.02);
+        background-color: black !important;
+        color: {NEON_GREEN} !important;
+        box-shadow: 0 0 15px {NEON_GREEN};
+    }}
+
+    /* DISABLED BUTTON (SOLD OUT) */
+    div.stButton > button:disabled {{
+        background-color: #555 !important;
+        color: #888 !important;
+        border: 2px solid #555 !important;
+        cursor: not-allowed;
+        box-shadow: none;
     }}
 
     /* TNG BUTTON STYLE */
     .tng-btn {{
-        background-color: {TNG_BLUE}; color: white; text-decoration: none;
-        padding: 10px 20px; border-radius: 8px; display: block; text-align: center;
-        font-weight: bold; margin-bottom: 10px; border: 1px solid white;
+        background-color: {TNG_BLUE};
+        color: white !important;
+        text-decoration: none;
+        padding: 12px 20px;
+        border-radius: 8px;
+        display: block;
+        text-align: center;
+        font-weight: bold;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        border: 1px solid white;
+        transition: all 0.2s;
     }}
-    .tng-btn:hover {{ background-color: #004ca3; color: white; }}
+    .tng-btn:hover {{
+        background-color: #004ca3;
+        transform: scale(1.02);
+    }}
 
     [data-testid="stDataFrame"] {{ background-color: {CARD_BG}; }}
     </style>
@@ -69,7 +104,7 @@ try:
     sheet_regs = db.worksheet("Registrations")
     sheet_sessions = db.worksheet("Sessions")
 except Exception as e:
-    st.error(f"Connection Error: {e}")
+    st.error(f"⚠️ CONNECTION ERROR: {e}")
     st.stop()
 
 # --- HEADER ---
@@ -82,87 +117,225 @@ with st.sidebar:
     mode = st.radio("Navigate", ["⚽ Register for Match", "📝 Player List", "🔒 Admin Panel"])
 
 # ==========================================
-# PAGE 1: REGISTRATION (TNG ENHANCED)
+# PAGE 1: REGISTRATION (MAX LIMIT + TNG)
 # ==========================================
 if mode == "⚽ Register for Match":
-    st.subheader("SELECT MATCH")
+    st.subheader("SELECT A MATCH")
     
     try:
+        # Load Data
         sessions_data = sheet_sessions.get_all_records()
         sessions_df = pd.DataFrame(sessions_data)
-        if "Status" not in sessions_df.columns: sessions_df["Status"] = "Open"
+        
+        reg_data = sheet_regs.get_all_records()
+        reg_df = pd.DataFrame(reg_data)
+
+        if sessions_df.empty:
+            st.warning("No sessions found.")
+            st.stop()
+            
+        if "Status" not in sessions_df.columns:
+             sessions_df["Status"] = "Open"
+             
+        # Check for 'Max Players' column
+        if "Max Players" not in sessions_df.columns:
+            st.error("Admin: Add 'Max Players' column to Sessions sheet.")
+            st.stop()
+
         open_sessions = sessions_df[sessions_df["Status"] == "Open"]
         
         if open_sessions.empty:
-            st.info("No games available.")
+            st.info("No open games right now.")
             st.stop()
             
         session_options = open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1).tolist()
+        
         selected_option = st.selectbox("Choose Session:", session_options)
+        
+        # Get details
         selected_row = open_sessions[open_sessions.apply(lambda x: f"{x['Session Name']} ({x['Date']})", axis=1) == selected_option].iloc[0]
         
-        S_DATE = selected_row['Date']
-        S_FEE = selected_row['Fee']
         S_NAME = selected_row['Session Name']
+        S_DATE = selected_row['Date']
+        S_TIME = selected_row['Time']
+        S_LOC = selected_row['Location']
+        S_FEE = selected_row['Fee']
+        S_MAX = int(selected_row['Max Players']) if str(selected_row['Max Players']).isdigit() else 20
         
-    except:
-        st.error("Error loading sessions.")
+        # --- COUNT LOGIC ---
+        current_count = 0
+        if not reg_df.empty:
+            reg_df['Session Date'] = reg_df['Session Date'].astype(str)
+            matching_regs = reg_df[reg_df['Session Date'] == str(S_DATE)]
+            current_count = len(matching_regs)
+            
+        spots_left = S_MAX - current_count
+        is_full = spots_left <= 0
+
+    except Exception as e:
+        st.error(f"⚠️ Error loading data: {e}")
         st.stop()
 
     st.write("")
     with st.container():
+        # --- PROGRESS BAR ---
+        st.caption(f"SPOTS FILLED: {current_count} / {S_MAX}")
+        progress = min(current_count / S_MAX, 1.0)
+        st.progress(progress)
+        
+        if is_full:
+            st.error("❌ FULLY BOOKED! NO SPOTS LEFT.")
+        else:
+            st.success(f"🔥 {spots_left} SPOTS LEFT!")
+
         col1, col2 = st.columns([1, 1])
         with col1:
-            st.markdown(f"#### 1. PAY: RM {S_FEE}")
+            st.markdown(f"#### FEE: RM {S_FEE}")
             try:
                 st.image("pay.jpg", use_container_width=True)
             except:
                 st.warning("Upload pay.jpg")
-            
-            # --- NEW TNG BUTTONS ---
-            st.caption("On Mobile? Screenshot the QR above, then click below:")
+
+            # --- TNG BUTTON INTEGRATION ---
             st.markdown(f"""
                 <a href="tngdwallet://" class="tng-btn">
                     🔵 Open Touch 'n Go App
                 </a>
             """, unsafe_allow_html=True)
-            
+
         with col2:
-            st.markdown("#### 2. CONFIRM")
+            st.markdown("#### MATCH DETAILS")
+            st.info(f"📍 {S_LOC}\n\n⏰ {S_TIME}\n\n📅 {S_DATE}")
+            
             with st.form("entry_form", clear_on_submit=True):
                 player_name = st.text_input("Your Nickname")
-                submitted = st.form_submit_button("✅ CONFIRM SLOT")
+                
+                # DISABLE BUTTON IF FULL
+                if is_full:
+                    submitted = st.form_submit_button("⛔ SOLD OUT", disabled=True)
+                else:
+                    submitted = st.form_submit_button("✅ CONFIRM SLOT")
 
                 if submitted and player_name:
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     row_data = [str(S_DATE), player_name, "Pending", str(S_FEE), timestamp]
                     sheet_regs.append_row(row_data)
-                    st.success(f"Success! {player_name} added.")
+                    st.balloons()
+                    st.success(f"Success! {player_name} secured a spot.")
                     
-                    msg = f"Hi Admin, I paid RM{S_FEE} for {S_NAME} via TNG. Name: {player_name}."
+                    msg = f"Hi Admin, I registered for {S_NAME} on {S_DATE}. Name: {player_name}."
                     wa_link = f"https://wa.me/{ADMIN_WHATSAPP}?text={msg}"
                     st.link_button("📤 SEND RECEIPT (WHATSAPP)", wa_link)
+                    
+                    st.rerun() 
                 elif submitted:
                     st.error("Name Required")
 
 # ==========================================
-# PAGE 2 & 3 (Keep existing logic)
+# PAGE 2: PLAYER LIST
 # ==========================================
 elif mode == "📝 Player List":
-    # ... (Copy the Player List logic from previous code) ...
-    st.subheader("PLAYER LIST")
-    # (Just use the standard logic here, no changes needed for TNG)
+    st.subheader("TEAM SHEET")
     try:
         reg_data = sheet_regs.get_all_records()
         reg_df = pd.DataFrame(reg_data)
-        st.dataframe(reg_df[["Session Date", "Player Name", "Payment Status"]], use_container_width=True)
-    except:
-        st.info("No data.")
+        
+        sessions_data = sheet_sessions.get_all_records()
+        sessions_df = pd.DataFrame(sessions_data)
+        
+        if not sessions_df.empty and "Date" in sessions_df.columns:
+            available_dates = sessions_df['Date'].unique().tolist()
+            selected_date_view = st.selectbox("View Players For:", available_dates)
+        else:
+            selected_date_view = None
 
+        if not reg_df.empty and selected_date_view:
+            reg_df['Session Date'] = reg_df['Session Date'].astype(str)
+            display_df = reg_df[reg_df['Session Date'] == str(selected_date_view)]
+            display_df = display_df[["Player Name", "Payment Status"]]
+            
+            st.caption(f"Total Players: {len(display_df)}")
+            
+            def highlight_status(val):
+                if val == 'Paid': return f'background-color: {NEON_GREEN}; color: black; font-weight: bold;'
+                elif val == 'Pending': return 'background-color: #444; color: orange; font-weight: bold;'
+                return ''
+
+            if not display_df.empty:
+                st.dataframe(display_df.style.applymap(highlight_status, subset=['Payment Status']), use_container_width=True)
+            else:
+                st.info(f"No players found for {selected_date_view}.")
+        else:
+            st.info("No data available.")
+    except Exception as e:
+        st.write(f"Loading Error: {e}")
+
+# ==========================================
+# PAGE 3: ADMIN PANEL
+# ==========================================
 elif mode == "🔒 Admin Panel":
-    # ... (Copy the Admin logic from previous code) ...
-    st.subheader("ADMIN")
+    st.subheader("ADMIN ACCESS")
     password = st.text_input("Password", type="password")
+    
     if password == ADMIN_PASSWORD:
-        st.success("Unlocked")
-        # (Admin logic goes here)
+        st.success("ACCESS GRANTED")
+        
+        tab_schedule, tab_players = st.tabs(["📅 MANAGE SCHEDULE", "👥 MANAGE PLAYERS"])
+        
+        with tab_schedule:
+            st.write("Edit upcoming games here.")
+            try:
+                s_data = sheet_sessions.get_all_records()
+                s_df = pd.DataFrame(s_data)
+                
+                if s_df.empty:
+                     s_df = pd.DataFrame(columns=["Session Name", "Date", "Time", "Location", "Fee", "Status", "Max Players"])
+
+                if "Date" in s_df.columns:
+                     s_df["Date"] = pd.to_datetime(s_df["Date"], errors='coerce').dt.date
+
+                edited_schedule = st.data_editor(
+                    s_df,
+                    num_rows="dynamic",
+                    column_config={
+                        "Status": st.column_config.SelectboxColumn("Status", options=["Open", "Closed"]),
+                        "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
+                        "Max Players": st.column_config.NumberColumn("Max Players", min_value=1, max_value=100, step=1, default=15)
+                    },
+                    use_container_width=True
+                )
+                
+                if st.button("💾 SAVE SCHEDULE"):
+                    save_df = edited_schedule.copy()
+                    save_df["Date"] = save_df["Date"].astype(str)
+                    sheet_sessions.clear()
+                    sheet_sessions.append_row(save_df.columns.tolist())
+                    sheet_sessions.append_rows(save_df.values.tolist())
+                    st.toast("Schedule Updated!", icon="✅")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+        with tab_players:
+            p_data = sheet_regs.get_all_records()
+            p_df = pd.DataFrame(p_data)
+            if "Delete?" not in p_df.columns: p_df.insert(0, "Delete?", False)
+            
+            edited_players = st.data_editor(
+                p_df, 
+                num_rows="dynamic",
+                column_config={
+                    "Delete?": st.column_config.CheckboxColumn("Delete?", default=False),
+                    "Payment Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Paid", "Rejected"])
+                },
+                use_container_width=True
+            )
+            
+            if st.button("💾 SAVE PLAYER STATUS"):
+                rows_to_keep = edited_players[edited_players["Delete?"] == False]
+                final_data = rows_to_keep.drop(columns=["Delete?"])
+                sheet_regs.clear()
+                sheet_regs.append_row(final_data.columns.tolist())
+                sheet_regs.append_rows(final_data.values.tolist())
+                st.toast("Players Updated!", icon="✅")
+                st.rerun()
